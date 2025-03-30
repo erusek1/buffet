@@ -131,20 +131,49 @@ export const calculateOwnerEarnings = (income, cashFlow, previousBalance, curren
       return null;
     }
     
+    // Handle negative owner earnings
+    if (currentOwnerEarnings <= 0) {
+      return 0; // Cannot value a company with negative or zero earnings
+    }
+    
+    // Fix for negative growth rates - use a more conservative approach
+    const projectionGrowthRate = growthRate < 0 
+      ? Math.max(-0.10, growthRate) // Limit negative growth to -10% to avoid extreme decline
+      : Math.min(0.15, growthRate); // Cap growth at 15% to be conservative
+    
+    // Ensure terminal growth rate is reasonable (between 1-3%)
+    const actualTerminalGrowthRate = Math.min(0.03, Math.max(0.01, terminalGrowthRate));
+    
     let presentValueOfEarnings = 0;
     
     // Calculate present value of projected earnings
     for (let year = 1; year <= yearsProjected; year++) {
-      const projectedEarnings = currentOwnerEarnings * Math.pow(1 + growthRate, year);
-      presentValueOfEarnings += projectedEarnings / Math.pow(1 + discountRate, year);
+      const projectedEarnings = currentOwnerEarnings * Math.pow(1 + projectionGrowthRate, year);
+      // Sanity check - ensure no negative earnings
+      const actualProjectedEarnings = Math.max(0, projectedEarnings);
+      presentValueOfEarnings += actualProjectedEarnings / Math.pow(1 + discountRate, year);
     }
     
     // Calculate terminal value using perpetuity growth formula
-    const finalYearEarnings = currentOwnerEarnings * Math.pow(1 + growthRate, yearsProjected);
-    const terminalValue = finalYearEarnings * (1 + terminalGrowthRate) / (discountRate - terminalGrowthRate);
+    const finalYearEarnings = currentOwnerEarnings * Math.pow(1 + projectionGrowthRate, yearsProjected);
+    
+    // Ensure we don't have negative final earnings
+    const actualFinalEarnings = Math.max(0.01, finalYearEarnings);
+    
+    // Ensure discount rate is greater than terminal growth for formula to work
+    const actualDiscountRate = Math.max(actualTerminalGrowthRate + 0.05, discountRate);
+    
+    // Calculate terminal value with safety checks
+    const terminalValue = actualFinalEarnings * (1 + actualTerminalGrowthRate) / 
+                         (actualDiscountRate - actualTerminalGrowthRate);
+    
+    // If terminal value is nonsensical (either negative or too high), use a multiple of final earnings instead
+    const reasonableTerminalValue = terminalValue <= 0 || terminalValue > (actualFinalEarnings * 25)
+      ? actualFinalEarnings * 12 // Use 12x earnings as a reasonable terminal multiple
+      : terminalValue;
     
     // Calculate present value of terminal value
-    const presentValueOfTerminal = terminalValue / Math.pow(1 + discountRate, yearsProjected);
+    const presentValueOfTerminal = reasonableTerminalValue / Math.pow(1 + discountRate, yearsProjected);
     
     // Total intrinsic value is sum of present values
     const intrinsicValue = presentValueOfEarnings + presentValueOfTerminal;
@@ -313,7 +342,20 @@ export const calculateOwnerEarnings = (income, cashFlow, previousBalance, curren
     const growthRate = calculateGrowthRate(ownerEarningsHistory);
     
     // Use a more conservative growth rate for projections
-    const projectedGrowthRate = growthRate ? Math.min(growthRate, 0.15) : 0.04; // Cap at 15%, default to 4%
+    // For negative growth, use a minimum floor
+    let projectedGrowthRate;
+    if (growthRate === null) {
+      projectedGrowthRate = 0.04; // Default to 4% if growth rate cannot be calculated
+    } else if (growthRate < 0) {
+      // For negative growth, use a more conservative approach for projections
+      const historicalGrowthRate = growthRate;
+      // Apply a recovery assumption - limited decline followed by industry average growth
+      // Instead of perpetual decline, assume the company can stabilize 
+      projectedGrowthRate = Math.max(-0.05, historicalGrowthRate / 2);
+    } else {
+      // For positive growth, cap at 15% to be conservative
+      projectedGrowthRate = Math.min(growthRate, 0.15);
+    }
     
     // Assess business quality
     const businessQuality = assessBusinessQuality(metrics, ratios, incomeStatements);
@@ -351,7 +393,7 @@ export const calculateOwnerEarnings = (income, cashFlow, previousBalance, curren
     }
     
     // Calculate upside potential
-    const upsidePercent = ((intrinsicValuePerShare / currentPrice) - 1) * 100;
+    const upsidePercent = intrinsicValuePerShare ? ((intrinsicValuePerShare / currentPrice) - 1) * 100 : 0;
     
     return {
       ticker,
