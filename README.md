@@ -1,101 +1,92 @@
 # Buffett-Style Value Investing Application
 
-A React application for value investing based on the principles of Warren Buffett and Benjamin Graham.
+A comprehensive value investing application based on Warren Buffett's principles for identifying and analyzing undervalued stocks.
 
 ## Features
 
-- **Intrinsic Value Calculator**: Calculate the intrinsic value of stocks using Buffett's owner earnings approach
-- **Opportunity Finder**: Screen for quality stocks trading below their intrinsic value
-- **Watchlist**: Keep track of potential investment opportunities
+- **Intrinsic Value Calculator**: Calculate stock intrinsic values using owner earnings with adjustable parameters for growth rate, discount rate, and margin of safety.
+- **Market Scanner**: Automatically scan the market for value opportunities based on owner earnings approach.
+- **Multiple Valuation Methods**: Cross-validate intrinsic value calculations using various approaches (DCF, Graham Number, PE Multiple, etc.).
+- **Watchlist Management**: Track your value opportunities and get alerts when prices reach buy targets.
+- **Conservative Valuations**: Follow Buffett's philosophy of conservative projections and appropriate margins of safety.
 
 ## Getting Started
 
-<<<<<<< HEAD
-1. Clone the repository
-2. Install dependencies: `npm install`
-3. Create a `.env` file with your Financial Modeling Prep API key:
-4. Start the development server: `npm start`
-
-## API Usage
-
-This application uses the Financial Modeling Prep API for financial data. You'll need to obtain an API key from [financialmodelingprep.com](https://financialmodelingprep.com/developer/docs/).
-
-The Premium plan ($69/month) is recommended for best performance and functionality.
-=======
 ### Prerequisites
 
-- Node.js (v14 or higher)
-- npm or yarn
-- Financial Modeling Prep API key (get one at [financialmodelingprep.com](https://financialmodelingprep.com/developer/docs/))
+- Node.js 14.x or higher
+- npm 6.x or higher
 
 ### Installation
 
-1. Clone the repository
-   ```
-   git clone https://github.com/erusek1/value-investing.git
-   cd value-investing
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/erusek1/buffet.git
+   cd buffet
    ```
 
-2. Install dependencies
-   ```
+2. Install dependencies:
+   ```bash
    npm install
    ```
 
-3. Create a `.env` file in the root directory and add your API key
+3. Create a .env file in the root directory and add your Financial Modeling Prep API key:
    ```
    REACT_APP_FMP_API_KEY=your_api_key_here
    ```
+   Note: You can get a free API key by signing up at [Financial Modeling Prep](https://financialmodelingprep.com/developer/docs/).
 
-4. Start the development server
-   ```
+4. Start the development server:
+   ```bash
    npm start
    ```
 
-5. Open [http://localhost:3000](http://localhost:3000) to view the application
+5. Open [http://localhost:3000](http://localhost:3000) to view the application in your browser.
 
 ## Usage
 
 ### Intrinsic Value Calculator
 
-1. Enter a stock ticker (e.g., KO for Coca-Cola)
-2. Click "Analyze" to fetch financial data and calculate intrinsic value
-3. Review the results and adjust parameters if needed
-4. Add promising stocks to your watchlist
+1. Navigate to the "Value Calculator" page
+2. Enter the stock's financial data (current earnings, depreciation, capex, etc.)
+3. Adjust growth and discount rates according to your assessment of the business
+4. Get a conservative intrinsic value estimate with an appropriate margin of safety
 
-### Opportunity Finder
+### Market Scanner
 
-1. Click "Find Opportunities" to scan for undervalued quality stocks
-2. Review the results sorted by upside potential
-3. Add interesting opportunities to your watchlist
+1. Navigate to the "Market Scanner" page
+2. Click "Scan Market for Value Opportunities"
+3. The application will analyze hundreds of stocks to find potential value opportunities
+4. Filter the results by sector, market cap, valuation ratio, and moat rating
 
-### Watchlist
+## Value Investing Principles
 
-1. View your saved stock opportunities
-2. Add notes to track your investment thesis
-3. Set price alerts for potential buy points
-4. Refresh prices to get the latest data
->>>>>>> 8b6e456c631ecf3a6ae9761eb36ca24777a0a583
+This application follows Warren Buffett's and Benjamin Graham's core value investing principles:
 
-## Investing Philosophy
+1. **Focus on Owner Earnings**: Instead of accounting earnings, we focus on owner earnings (Operating Cash Flow - Maintenance CapEx).
+2. **Margin of Safety**: Always requiring a significant discount to intrinsic value.
+3. **Business Quality**: Emphasizing companies with durable competitive advantages.
+4. **Conservative Projections**: Using conservative growth rates and appropriate discount rates.
+5. **Long-term Orientation**: Focusing on the long-term earning power of businesses.
 
-This application follows Warren Buffett's value investing principles:
+## API Integration
 
-- Focus on owner earnings rather than accounting earnings
-- Look for businesses with strong competitive advantages (moats)
-- Apply a margin of safety when buying
-- Prioritize business quality over price
-- Think long-term and be patient
+The application integrates with the [Financial Modeling Prep API](https://financialmodelingprep.com/developer/docs/) to get real-time financial data. Different API tiers provide different levels of functionality:
 
-<<<<<<< HEAD
-"Price is what you pay. Value is what you get." - Warren Buffett
-=======
-> "Price is what you pay. Value is what you get." - Warren Buffett
+- **Basic (Free)**: Limited to basic financial statements and stock quotes.
+- **Starter ($19/mo)**: Adds access to more endpoints and higher rate limits.
+- **Premium ($49/mo)**: Recommended for best experience with bulk data access.
 
-## API Usage
+## Contributing
 
-This application uses the Financial Modeling Prep API for financial data. The free tier has limited functionality, so a Premium plan ($69/month) is recommended for best performance and features.
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the MIT License.
->>>>>>> 8b6e456c631ecf3a6ae9761eb36ca24777a0a583
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- Warren Buffett and Charlie Munger for their investment wisdom
+- Benjamin Graham for the foundations of value investing
+- The Financial Modeling Prep API team for providing financial data access
