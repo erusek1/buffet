@@ -1,4 +1,5 @@
 import React, { Component } from 'react';
+import { Card, CardHeader, CardTitle, CardContent } from './Card';
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -11,66 +12,65 @@ class ErrorBoundary extends Component {
   }
 
   static getDerivedStateFromError(error) {
-    // Update state so the next render will show the fallback UI.
+    // Update state so the next render will show the fallback UI
     return { hasError: true };
   }
 
   componentDidCatch(error, errorInfo) {
-    // You can log the error to an error reporting service
-    console.error("Error caught by ErrorBoundary:", error, errorInfo);
+    // You can also log the error to an error reporting service
     this.setState({
       error: error,
       errorInfo: errorInfo
     });
+    console.error("Error caught by ErrorBoundary:", error, errorInfo);
   }
 
   render() {
     if (this.state.hasError) {
-      // You can render any custom fallback UI
       return (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 my-4 rounded">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">
-                Something went wrong
-              </h3>
-              <div className="mt-2 text-sm text-red-700">
-                <p>
-                  {this.props.fallbackMessage || "We encountered an error while rendering this component."}
-                </p>
-                {this.props.showDetails && (
-                  <details className="mt-3 whitespace-pre-wrap text-xs">
-                    <summary className="cursor-pointer text-red-800 hover:underline">
-                      Technical Details
-                    </summary>
-                    <p className="mt-2 p-2 bg-red-100 rounded overflow-auto">
-                      {this.state.error && this.state.error.toString()}
-                      <br />
-                      {this.state.errorInfo && this.state.errorInfo.componentStack}
-                    </p>
-                  </details>
-                )}
-                {this.props.showReset && (
-                  <button
-                    onClick={() => this.setState({ hasError: false, error: null, errorInfo: null })}
-                    className="mt-3 px-2 py-1 bg-red-200 text-red-800 rounded hover:bg-red-300"
-                  >
-                    Try Again
-                  </button>
-                )}
+        <div className="p-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-red-600">Something went wrong</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-4">
+                An error occurred while rendering this component. Please try refreshing the page or contact support if the issue persists.
+              </p>
+              {this.state.error && (
+                <div className="bg-red-50 p-4 rounded-lg">
+                  <p className="font-semibold">Error:</p>
+                  <p className="text-red-600">{this.state.error.toString()}</p>
+                </div>
+              )}
+              
+              {this.state.errorInfo && (
+                <details className="mt-4">
+                  <summary className="cursor-pointer text-gray-600 font-medium">
+                    View technical details
+                  </summary>
+                  <div className="mt-2 p-4 bg-gray-50 rounded-lg overflow-auto text-xs">
+                    <pre>{this.state.errorInfo.componentStack}</pre>
+                  </div>
+                </details>
+              )}
+              
+              <div className="mt-6">
+                <button
+                  onClick={() => window.location.reload()}
+                  className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded"
+                >
+                  Refresh Page
+                </button>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       );
     }
 
-    return this.props.children; 
+    // If no error, render children normally
+    return this.props.children;
   }
 }
 
