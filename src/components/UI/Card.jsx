@@ -1,32 +1,32 @@
 import React from 'react';
 
-const Card = ({ children, className = '' }) => {
+export const Card = ({ children, className = "" }) => {
   return (
-    <div className={`bg-white shadow-md rounded-lg overflow-hidden ${className}`}>
+    <div className={`bg-white shadow rounded-lg overflow-hidden ${className}`}>
       {children}
     </div>
   );
 };
 
-export const CardHeader = ({ children, className = '' }) => {
+export const CardHeader = ({ children, className = "" }) => {
   return (
-    <div className={`px-6 py-4 border-b border-gray-200 ${className}`}>
+    <div className={`px-6 py-3 border-b ${className}`}>
       {children}
     </div>
   );
 };
 
-export const CardTitle = ({ children, className = '' }) => {
+export const CardTitle = ({ children, className = "" }) => {
   return (
-    <h2 className={`text-xl font-semibold text-gray-800 ${className}`}>
+    <h2 className={`font-semibold text-lg ${className}`}>
       {children}
     </h2>
   );
 };
 
-export const CardContent = ({ children, className = '' }) => {
+export const CardContent = ({ children, className = "" }) => {
   return (
-    <div className={`px-6 py-4 ${className}`}>
+    <div className={`p-6 ${className}`}>
       {children}
     </div>
   );
