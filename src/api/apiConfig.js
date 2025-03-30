@@ -28,6 +28,8 @@ const apiConfig = {
     ratios: '/ratios/',
     growth: '/financial-growth/',
     dcf: '/discounted-cash-flow/',
+    screener: '/stock-screener', // For filtering stocks based on criteria
+    symbols: '/stock/list', // For getting all available symbols
   }
 };
 
