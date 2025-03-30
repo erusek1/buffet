@@ -56,17 +56,24 @@ const makeRequest = async (endpoint, params = {}, cacheTTL = null) => {
   // Add API key
   url.searchParams.append('apikey', apiConfig.apiKey);
   
+  // Debug: log API key (partial for security)
+  console.log(`Using API key: ${apiConfig.apiKey.substring(0, 5)}...${apiConfig.apiKey.substring(apiConfig.apiKey.length - 5)}`);
+  
   // Add other parameters
   Object.entries(params).forEach(([key, value]) => {
     url.searchParams.append(key, value);
   });
   
   const cacheKey = url.toString();
+  console.log(`Making API request to: ${url.toString()}`);
   
   // Check cache first if TTL is provided
   if (cacheTTL !== null) {
     const cachedData = cache.get(cacheKey);
-    if (cachedData) return cachedData;
+    if (cachedData) {
+      console.log('Returning cached data');
+      return cachedData;
+    }
   }
   
   // Check rate limit
@@ -76,6 +83,8 @@ const makeRequest = async (endpoint, params = {}, cacheTTL = null) => {
     const response = await fetch(url.toString());
     
     if (!response.ok) {
+      console.error(`API error: ${response.status} ${response.statusText}`);
+      console.error('Response details:', await response.text());
       throw new Error(`API error: ${response.status} ${response.statusText}`);
     }
     
@@ -147,6 +156,7 @@ export const getFinancialRatios = async (symbol, limit = 5) => {
  */
 export const getCompanyFinancials = async (symbol) => {
   try {
+    console.log(`Fetching financial data for: ${symbol}`);
     const [profile, quote, incomeStatements, balanceSheets, cashFlows, metrics, ratios] = await Promise.all([
       getCompanyProfile(symbol),
       getStockQuote(symbol),
@@ -199,7 +209,8 @@ export const getBatchQuotes = async (symbols) => {
   return makeRequest(apiConfig.endpoints.quote + symbolsString, {}, 15 * 60 * 1000);
 };
 
-export default {
+// Create a proper service object
+const fmpService = {
   getCompanyProfile,
   getStockQuote,
   getIncomeStatements,
@@ -210,3 +221,5 @@ export default {
   getCompanyFinancials,
   getBatchQuotes
 };
+
+export default fmpService;
