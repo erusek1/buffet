@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getCompanyFinancials } from '../../api/fmpService';
 import calculationService from '../../services/analysis/calculationService';
 import dataProcessingService from '../../services/analysis/dataProcessingService';
+import apiConfig from '../../api/apiConfig';
 
 const ValuationCalculator = () => {
   const [ticker, setTicker] = useState('');
@@ -19,6 +20,16 @@ const ValuationCalculator = () => {
     marginOfSafety: 25
   });
   
+  // Check API configuration on mount
+  useEffect(() => {
+    console.log("API Config:", {
+      baseUrl: apiConfig.baseUrl,
+      keyIsSet: apiConfig.apiKey ? "Yes" : "No",
+      keyStartsWith: apiConfig.apiKey ? apiConfig.apiKey.substring(0, 5) : "N/A",
+      endpoints: apiConfig.endpoints
+    });
+  }, []);
+  
   // Fetch financial data when ticker changes
   const fetchFinancialData = async () => {
     if (!ticker) return;
@@ -27,7 +38,14 @@ const ValuationCalculator = () => {
     setError(null);
     
     try {
+      console.log(`Fetching data for ${ticker}...`);
       const data = await getCompanyFinancials(ticker);
+      console.log("Data received:", data);
+      
+      if (!data || !data.profile || !data.quote) {
+        throw new Error("No data returned from API or missing required information");
+      }
+      
       const processedData = dataProcessingService.processFinancialData(data);
       setFinancialData(processedData);
       
@@ -175,7 +193,20 @@ const ValuationCalculator = () => {
             {loading ? 'Loading...' : 'Analyze'}
           </button>
         </div>
-        {error && <p className="mt-2 text-red-600">{error}</p>}
+        {error && (
+          <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md text-red-600">
+            <p className="font-bold">Error:</p>
+            <p>{error}</p>
+            <div className="mt-2 text-sm">
+              <p>Debugging tips:</p>
+              <ul className="list-disc pl-5">
+                <li>Check if you're using a valid stock ticker (e.g., AAPL, MSFT, KO)</li>
+                <li>API key: {apiConfig.apiKey ? apiConfig.apiKey.substring(0, 5) + "..." + apiConfig.apiKey.substring(apiConfig.apiKey.length - 5) : "Not set"}</li>
+                <li>Try refreshing the page</li>
+              </ul>
+            </div>
+          </div>
+        )}
       </div>
       
       {valuation && (
@@ -302,15 +333,15 @@ const ValuationCalculator = () => {
             
             <h2 className="text-lg font-semibold mt-6 mb-4">Key Metrics</h2>
             <div className="p-4 bg-gray-50 rounded-lg grid grid-cols-2 gap-2">
-              <p><span className="font-semibold">ROE:</span> {valuation.additionalMetrics.roe}</p>
-              <p><span className="font-semibold">ROA:</span> {valuation.additionalMetrics.roa}</p>
-              <p><span className="font-semibold">Debt/Equity:</span> {valuation.additionalMetrics.debtToEquity}</p>
-              <p><span className="font-semibold">Current Ratio:</span> {valuation.additionalMetrics.currentRatio}</p>
-              <p><span className="font-semibold">Gross Margin:</span> {valuation.additionalMetrics.grossMargin}</p>
-              <p><span className="font-semibold">Operating Margin:</span> {valuation.additionalMetrics.operatingMargin}</p>
-              <p><span className="font-semibold">Net Margin:</span> {valuation.additionalMetrics.netMargin}</p>
-              <p><span className="font-semibold">P/E Ratio:</span> {valuation.additionalMetrics.peRatio}</p>
-              <p><span className="font-semibold">P/B Ratio:</span> {valuation.additionalMetrics.pbRatio}</p>
+              <p><span className="font-semibold">ROE:</span> {valuation.additionalMetrics?.roe || 'N/A'}</p>
+              <p><span className="font-semibold">ROA:</span> {valuation.additionalMetrics?.roa || 'N/A'}</p>
+              <p><span className="font-semibold">Debt/Equity:</span> {valuation.additionalMetrics?.debtToEquity || 'N/A'}</p>
+              <p><span className="font-semibold">Current Ratio:</span> {valuation.additionalMetrics?.currentRatio || 'N/A'}</p>
+              <p><span className="font-semibold">Gross Margin:</span> {valuation.additionalMetrics?.grossMargin || 'N/A'}</p>
+              <p><span className="font-semibold">Operating Margin:</span> {valuation.additionalMetrics?.operatingMargin || 'N/A'}</p>
+              <p><span className="font-semibold">Net Margin:</span> {valuation.additionalMetrics?.netMargin || 'N/A'}</p>
+              <p><span className="font-semibold">P/E Ratio:</span> {valuation.additionalMetrics?.peRatio || 'N/A'}</p>
+              <p><span className="font-semibold">P/B Ratio:</span> {valuation.additionalMetrics?.pbRatio || 'N/A'}</p>
             </div>
           </div>
         </div>
