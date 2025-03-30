@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import ValuationCalculator from './components/Analysis/ValuationCalculator';
 import OpportunityFinder from './components/Screener/OpportunityFinder';
 import WatchlistManager from './components/Watchlist/WatchlistManager';
+import ApiTestComponent from './components/Analysis/ApiTestComponent';
 
 const App = () => {
   return (
@@ -19,6 +20,7 @@ const App = () => {
                   <Link to="/" className="py-4 px-3 hover:bg-blue-600">Valuation Calculator</Link>
                   <Link to="/opportunities" className="py-4 px-3 hover:bg-blue-600">Opportunity Finder</Link>
                   <Link to="/watchlist" className="py-4 px-3 hover:bg-blue-600">Watchlist</Link>
+                  <Link to="/api-test" className="py-4 px-3 hover:bg-blue-600 text-yellow-300">API Test</Link>
                 </div>
               </div>
             </div>
@@ -30,6 +32,7 @@ const App = () => {
             <Route path="/" element={<ValuationCalculator />} />
             <Route path="/opportunities" element={<OpportunityFinder />} />
             <Route path="/watchlist" element={<WatchlistManager />} />
+            <Route path="/api-test" element={<ApiTestComponent />} />
           </Routes>
         </div>
         

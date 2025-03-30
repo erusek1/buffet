@@ -16,15 +16,73 @@ const API_CONFIG = {
  * @param {Object} params - Query parameters
  * @returns {Promise} - Response data
  */
+<<<<<<< HEAD
 const fetchFromAPI = async (endpoint, params = {}) => {
+=======
+const checkRateLimit = () => {
+  const now = Date.now();
+  if (now - lastResetTime > 60000) {
+    // Reset if a minute has passed
+    requestsThisMinute = 0;
+    lastResetTime = now;
+  }
+  
+  if (requestsThisMinute >= apiConfig.rateLimit.requestsPerMinute) {
+    throw new Error('API rate limit reached. Please try again in a minute.');
+  }
+  
+  requestsThisMinute++;
+};
+
+/**
+ * Make an API request with rate limiting and caching
+ */
+const makeRequest = async (endpoint, params = {}, cacheTTL = null) => {
+  // Build the URL
+  const url = new URL(`${apiConfig.baseUrl}${endpoint}`);
+  
+  // Add API key
+  url.searchParams.append('apikey', apiConfig.apiKey);
+  
+  // Debug: log API key (partial for security)
+  console.log(`Using API key: ${apiConfig.apiKey.substring(0, 5)}...${apiConfig.apiKey.substring(apiConfig.apiKey.length - 5)}`);
+  
+  // Add other parameters
+  Object.entries(params).forEach(([key, value]) => {
+    url.searchParams.append(key, value);
+  });
+  
+  const cacheKey = url.toString();
+  console.log(`Making API request to: ${url.toString()}`);
+  
+  // Check cache first if TTL is provided
+  if (cacheTTL !== null) {
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      console.log('Returning cached data');
+      return cachedData;
+    }
+  }
+  
+  // Check rate limit
+  checkRateLimit();
+  
+>>>>>>> 8b6e456c631ecf3a6ae9761eb36ca24777a0a583
   try {
     // Create cache key based on endpoint and parameters
     const cacheKey = `${endpoint}_${JSON.stringify(params)}`;
     
+<<<<<<< HEAD
     // Check cache first
     const cachedData = apiCache.get(cacheKey);
     if (cachedData && Date.now() < cachedData.expiry) {
       return cachedData.data;
+=======
+    if (!response.ok) {
+      console.error(`API error: ${response.status} ${response.statusText}`);
+      console.error('Response details:', await response.text());
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+>>>>>>> 8b6e456c631ecf3a6ae9761eb36ca24777a0a583
     }
     
     // Add API key to parameters
@@ -119,11 +177,21 @@ export const getRatios = async (symbol, limit = 5) => {
  */
 export const getFinancialStatements = async (symbol) => {
   try {
+<<<<<<< HEAD
     // Make parallel requests for all financial data
     const [incomeStatement, balanceSheet, cashFlow, keyMetrics, ratios] = await Promise.all([
       getIncomeStatement(symbol),
       getBalanceSheet(symbol),
       getCashFlow(symbol),
+=======
+    console.log(`Fetching financial data for: ${symbol}`);
+    const [profile, quote, incomeStatements, balanceSheets, cashFlows, metrics, ratios] = await Promise.all([
+      getCompanyProfile(symbol),
+      getStockQuote(symbol),
+      getIncomeStatements(symbol),
+      getBalanceSheets(symbol),
+      getCashFlowStatements(symbol),
+>>>>>>> 8b6e456c631ecf3a6ae9761eb36ca24777a0a583
       getKeyMetrics(symbol),
       getRatios(symbol),
     ]);
@@ -162,13 +230,23 @@ export const testAPIConnection = async () => {
   }
 };
 
-export default {
+// Create a proper service object
+const fmpService = {
   getCompanyProfile,
   getIncomeStatement,
   getBalanceSheet,
   getCashFlow,
   getKeyMetrics,
+<<<<<<< HEAD
   getRatios,
   getFinancialStatements,
   testAPIConnection,
 };
+=======
+  getFinancialRatios,
+  getCompanyFinancials,
+  getBatchQuotes
+};
+
+export default fmpService;
+>>>>>>> 8b6e456c631ecf3a6ae9761eb36ca24777a0a583
