@@ -1,3 +1,4 @@
+// src/components/Watchlist/WatchlistManager.jsx
 import React, { useState, useEffect } from 'react';
 import watchlistService from '../../services/storage/watchlistService';
 import { getStockQuote } from '../../api/fmpService';
@@ -10,10 +11,7 @@ const WatchlistManager = () => {
   const [editNotes, setEditNotes] = useState({});
   const [alertInputs, setAlertInputs] = useState({});
   
-  useEffect(() => {
-    loadWatchlist();
-  }, []);
-  
+  // Define loadWatchlist before useEffect
   const loadWatchlist = async () => {
     try {
       const list = watchlistService.getWatchlist();
@@ -42,6 +40,10 @@ const WatchlistManager = () => {
       setLoading(false);
     }
   };
+  
+  useEffect(() => {
+    loadWatchlist();
+  }, []);  // Empty dependency array is fine here as loadWatchlist is defined outside
   
   const refreshPrices = async (stocks = watchlist) => {
     if (stocks.length === 0) return;

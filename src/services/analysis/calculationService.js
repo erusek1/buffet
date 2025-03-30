@@ -1,397 +1,287 @@
 /**
- * Core valuation calculations following Buffett principles
+ * Buffett-Style Intrinsic Value Calculation Service
+ * Following Warren Buffett and Benjamin Graham principles with realistic adjustments
  */
 
 /**
- * Calculate owner earnings (Buffett's preferred cash flow measure)
- * Owner Earnings = Net Income + Depreciation - Capital Expenditures - Working Capital Changes
+ * Normalizes growth rate for future projections
+ * Prevents unrealistically negative projections while remaining conservative
+ * 
+ * @param {number} historicalGrowth - Historical growth rate percentage
+ * @param {string} businessQuality - Business quality category
+ * @returns {number} - Normalized growth rate for projections
  */
-export const calculateOwnerEarnings = (income, cashFlow, previousBalance, currentBalance) => {
-    if (!income || !cashFlow) {
-      return null;
-    }
-    
-    // Get net income from income statement
-    const netIncome = income.netIncome || 0;
-    
-    // Get depreciation from cash flow statement
-    const depreciation = cashFlow.depreciationAndAmortization || 0;
-    
-    // Get capital expenditures from cash flow statement
-    const capex = Math.abs(cashFlow.capitalExpenditure || 0);
-    
-    // Calculate working capital change if balance sheets are provided
-    let workingCapitalChange = 0;
-    
-    if (previousBalance && currentBalance) {
-      const currentWorkingCapital = (currentBalance.totalCurrentAssets || 0) - (currentBalance.totalCurrentLiabilities || 0);
-      const previousWorkingCapital = (previousBalance.totalCurrentAssets || 0) - (previousBalance.totalCurrentLiabilities || 0);
-      workingCapitalChange = currentWorkingCapital - previousWorkingCapital;
-    }
-    
-    // Calculate owner earnings
-    const ownerEarnings = netIncome + depreciation - capex - workingCapitalChange;
-    
-    return ownerEarnings;
+export const normalizeGrowthRate = (historicalGrowth, businessQuality) => {
+  // Minimum baseline growth rates by business quality
+  const minimumGrowthRates = {
+    excellent: 3.0,  // Strong moat companies don't typically shrink forever
+    good: 2.0,       // Good businesses typically grow at least with inflation
+    fair: 1.0,       // Fair businesses can at least match some inflation
+    cyclical: 0.5    // Cyclical businesses may have limited real growth
   };
-  
-  /**
-   * Calculate owner earnings per share
-   */
-  export const calculateOwnerEarningsPerShare = (ownerEarnings, sharesOutstanding) => {
-    if (!ownerEarnings || !sharesOutstanding || sharesOutstanding === 0) {
-      return null;
-    }
-    
-    return ownerEarnings / sharesOutstanding;
+
+  // Maximum reasonable growth rates to cap optimistic projections
+  const maximumGrowthRates = {
+    excellent: 12.0,
+    good: 9.0,
+    fair: 7.0,
+    cyclical: 5.0
   };
-  
-  /**
-   * Calculate the historical growth rate based on array of values
-   * Uses compound annual growth rate (CAGR) formula
-   */
-  export const calculateGrowthRate = (values) => {
-    if (!values || values.length < 2) {
-      return null;
-    }
-    
-    // Filter out null, undefined, and non-positive values
-    const filteredValues = values.filter(v => v !== null && v !== undefined && v > 0);
-    
-    if (filteredValues.length < 2) {
-      return null;
-    }
-    
-    const startValue = filteredValues[filteredValues.length - 1]; // Oldest value
-    const endValue = filteredValues[0]; // Most recent value
-    const years = filteredValues.length - 1;
-    
-    // CAGR = (endValue / startValue)^(1/years) - 1
-    const growthRate = Math.pow(endValue / startValue, 1 / years) - 1;
-    
-    return growthRate;
-  };
-  
-  /**
-   * Determine the appropriate discount rate based on business quality
-   * Higher quality businesses get lower discount rates (less risk)
-   */
-  export const determineDiscountRate = (businessQuality) => {
-    switch (businessQuality) {
-      case 'excellent':
-        return 0.09; // 9% for excellent businesses
-      case 'good':
-        return 0.10; // 10% for good businesses
-      case 'fair':
-        return 0.12; // 12% for fair businesses
-      case 'cyclical':
-        return 0.15; // 15% for cyclical businesses
-      default:
-        return 0.10; // Default to 10%
-    }
-  };
-  
-  /**
-   * Determine the appropriate margin of safety based on business quality
-   */
-  export const determineMarginOfSafety = (businessQuality) => {
-    switch (businessQuality) {
-      case 'excellent':
-        return 0.25; // 25% for excellent businesses
-      case 'good':
-        return 0.35; // 35% for good businesses
-      case 'fair':
-        return 0.40; // 40% for fair businesses
-      case 'cyclical':
-        return 0.50; // 50% for cyclical businesses
-      default:
-        return 0.35; // Default to 35%
-    }
-  };
-  
-  /**
-   * Calculate intrinsic value using discounted cash flow method
-   * based on owner earnings
-   */
-  export const calculateIntrinsicValue = (
-    currentOwnerEarnings,
-    growthRate,
-    discountRate,
-    terminalGrowthRate,
-    yearsProjected
-  ) => {
-    if (
-      currentOwnerEarnings === null ||
-      currentOwnerEarnings === undefined ||
-      growthRate === null ||
-      discountRate === null ||
-      terminalGrowthRate === null ||
-      yearsProjected === null
-    ) {
-      return null;
-    }
-    
-    let presentValueOfEarnings = 0;
-    
-    // Calculate present value of projected earnings
-    for (let year = 1; year <= yearsProjected; year++) {
-      const projectedEarnings = currentOwnerEarnings * Math.pow(1 + growthRate, year);
-      presentValueOfEarnings += projectedEarnings / Math.pow(1 + discountRate, year);
-    }
-    
-    // Calculate terminal value using perpetuity growth formula
-    const finalYearEarnings = currentOwnerEarnings * Math.pow(1 + growthRate, yearsProjected);
-    const terminalValue = finalYearEarnings * (1 + terminalGrowthRate) / (discountRate - terminalGrowthRate);
-    
-    // Calculate present value of terminal value
-    const presentValueOfTerminal = terminalValue / Math.pow(1 + discountRate, yearsProjected);
-    
-    // Total intrinsic value is sum of present values
-    const intrinsicValue = presentValueOfEarnings + presentValueOfTerminal;
-    
-    return intrinsicValue;
-  };
-  
-  /**
-   * Calculate per-share intrinsic value
-   */
-  export const calculateIntrinsicValuePerShare = (intrinsicValue, sharesOutstanding) => {
-    if (
-      intrinsicValue === null ||
-      sharesOutstanding === null ||
-      sharesOutstanding === 0
-    ) {
-      return null;
-    }
-    
-    return intrinsicValue / sharesOutstanding;
-  };
-  
-  /**
-   * Calculate buy price with margin of safety
-   */
-  export const calculateBuyPrice = (intrinsicValuePerShare, marginOfSafety) => {
-    if (
-      intrinsicValuePerShare === null ||
-      marginOfSafety === null
-    ) {
-      return null;
-    }
-    
-    return intrinsicValuePerShare * (1 - marginOfSafety);
-  };
-  
-  /**
-   * Assess business quality based on financial metrics
-   * Returns 'excellent', 'good', 'fair', or 'cyclical'
-   */
-  export const assessBusinessQuality = (metrics, ratios, incomeStatements) => {
-    if (!metrics || !ratios || !incomeStatements) {
-      return 'fair'; // Default to fair if data is missing
-    }
-    
-    // Extract the most recent metrics and ratios
-    const recentMetrics = metrics[0] || {};
-    const recentRatios = ratios[0] || {};
-    
-    // Calculate earnings stability (how many years of positive earnings)
-    const earningsHistory = incomeStatements.map(stmt => stmt.netIncome);
-    const positiveEarningsYears = earningsHistory.filter(earnings => earnings > 0).length;
-    const earningsStability = positiveEarningsYears / earningsHistory.length;
-    
-    // Get key metrics
-    const roe = recentRatios.returnOnEquity ? recentRatios.returnOnEquity * 100 : 0;
-    const roa = recentRatios.returnOnAssets ? recentRatios.returnOnAssets * 100 : 0;
-    const debtToEquity = recentRatios.debtToEquity || 0;
-    const grossMargin = recentRatios.grossProfitMargin ? recentRatios.grossProfitMargin * 100 : 0;
-    const operatingMargin = recentRatios.operatingProfitMargin ? recentRatios.operatingProfitMargin * 100 : 0;
-    const freeCashFlow = recentMetrics.freeCashFlow || 0;
-    
-    // Scoring system
-    let score = 0;
-    
-    // ROE scoring
-    if (roe > 20) score += 3;
-    else if (roe > 15) score += 2;
-    else if (roe > 10) score += 1;
-    
-    // ROA scoring
-    if (roa > 10) score += 3;
-    else if (roa > 7) score += 2;
-    else if (roa > 5) score += 1;
-    
-    // Debt to Equity scoring
-    if (debtToEquity < 0.3) score += 3;
-    else if (debtToEquity < 0.5) score += 2;
-    else if (debtToEquity < 1.0) score += 1;
-    
-    // Gross Margin scoring
-    if (grossMargin > 50) score += 3;
-    else if (grossMargin > 35) score += 2;
-    else if (grossMargin > 25) score += 1;
-    
-    // Operating Margin scoring
-    if (operatingMargin > 25) score += 3;
-    else if (operatingMargin > 15) score += 2;
-    else if (operatingMargin > 10) score += 1;
-    
-    // Free Cash Flow scoring
-    if (freeCashFlow > 0) score += 2;
-    
-    // Earnings Stability scoring
-    if (earningsStability > 0.9) score += 3;
-    else if (earningsStability > 0.7) score += 2;
-    else if (earningsStability > 0.5) score += 1;
-    
-    // Classify business quality based on score
-    if (score >= 16) return 'excellent';
-    if (score >= 12) return 'good';
-    if (score >= 8) return 'fair';
-    return 'cyclical';
-  };
-  
-  /**
-   * Calculate the Graham Number (a conservative valuation metric)
-   * Graham Number = sqrt(22.5 * EPS * BVPS)
-   */
-  export const calculateGrahamNumber = (eps, bookValuePerShare) => {
-    if (!eps || !bookValuePerShare || eps <= 0 || bookValuePerShare <= 0) {
-      return null;
-    }
-    
-    return Math.sqrt(22.5 * eps * bookValuePerShare);
-  };
-  
-  /**
-   * Perform a complete valuation analysis
-   */
-  export const performValuation = (financialData) => {
-    const {
-      profile,
-      quote,
-      incomeStatements,
-      balanceSheets,
-      cashFlows,
-      metrics,
-      ratios
-    } = financialData;
-    
-    if (!profile || !quote || !incomeStatements || !balanceSheets || !cashFlows) {
-      return {
-        error: 'Insufficient financial data for valuation'
-      };
-    }
-    
-    // Basic company info
-    const ticker = profile.symbol;
-    const name = profile.companyName;
-    const currentPrice = quote.price;
-    const sharesOutstanding = profile.mktCap / currentPrice;
-    
-    // Calculate owner earnings for each year
-    const ownerEarningsHistory = [];
-    for (let i = 0; i < Math.min(incomeStatements.length, cashFlows.length, balanceSheets.length - 1); i++) {
-      const income = incomeStatements[i];
-      const cashFlow = cashFlows[i];
-      const currentBalance = balanceSheets[i];
-      const previousBalance = balanceSheets[i + 1];
-      
-      const ownerEarnings = calculateOwnerEarnings(income, cashFlow, previousBalance, currentBalance);
-      
-      if (ownerEarnings !== null) {
-        ownerEarningsHistory.push(ownerEarnings);
-      }
-    }
-    
-    // Calculate owner earnings per share
-    const ownerEarningsPerShare = calculateOwnerEarningsPerShare(
-      ownerEarningsHistory[0], // Most recent
-      sharesOutstanding
-    );
-    
-    // Calculate historical growth rate of owner earnings
-    const growthRate = calculateGrowthRate(ownerEarningsHistory);
-    
-    // Use a more conservative growth rate for projections
-    const projectedGrowthRate = growthRate ? Math.min(growthRate, 0.15) : 0.04; // Cap at 15%, default to 4%
-    
-    // Assess business quality
-    const businessQuality = assessBusinessQuality(metrics, ratios, incomeStatements);
-    
-    // Determine appropriate discount rate and margin of safety
-    const discountRate = determineDiscountRate(businessQuality);
-    const marginOfSafety = determineMarginOfSafety(businessQuality);
-    
-    // Calculate intrinsic value
-    const intrinsicValue = calculateIntrinsicValue(
-      ownerEarningsHistory[0], // Most recent owner earnings
-      projectedGrowthRate,
-      discountRate,
-      0.02, // Terminal growth rate (2%)
-      10    // Years projected
-    );
-    
-    // Calculate per share values
-    const intrinsicValuePerShare = calculateIntrinsicValuePerShare(intrinsicValue, sharesOutstanding);
-    const buyPrice = calculateBuyPrice(intrinsicValuePerShare, marginOfSafety);
-    
-    // Calculate Graham Number as a secondary valuation check
-    const eps = incomeStatements[0].eps || (incomeStatements[0].netIncome / sharesOutstanding);
-    const bookValuePerShare = balanceSheets[0].totalStockholdersEquity / sharesOutstanding;
-    const grahamNumber = calculateGrahamNumber(eps, bookValuePerShare);
-    
-    // Determine valuation status
-    let valuationStatus;
-    if (currentPrice <= buyPrice) {
-      valuationStatus = 'BUY';
-    } else if (currentPrice <= intrinsicValuePerShare) {
-      valuationStatus = 'FAIR';
+
+  // Default to 'fair' if businessQuality is not recognized
+  const quality = Object.keys(minimumGrowthRates).includes(businessQuality) 
+    ? businessQuality 
+    : 'fair';
+
+  // If historical growth is negative, use a recovery model
+  if (historicalGrowth < 0) {
+    // For negative growth histories, assume some recovery but stay conservative
+    // More severe negative growth gets more conservative projections
+    if (historicalGrowth < -10) {
+      return minimumGrowthRates[quality] * 0.5; // Very conservative for severely declining businesses
     } else {
-      valuationStatus = 'OVERVALUED';
+      return minimumGrowthRates[quality]; // Base minimum for moderately declining businesses
     }
-    
-    // Calculate upside potential
-    const upsidePercent = ((intrinsicValuePerShare / currentPrice) - 1) * 100;
-    
-    return {
-      ticker,
-      name,
-      currentPrice,
-      businessQuality,
-      ownerEarningsPerShare,
-      growthRate: growthRate ? (growthRate * 100).toFixed(2) + '%' : 'N/A',
-      projectedGrowthRate: (projectedGrowthRate * 100).toFixed(2) + '%',
-      discountRate: (discountRate * 100).toFixed(2) + '%',
-      marginOfSafety: (marginOfSafety * 100).toFixed(2) + '%',
-      intrinsicValuePerShare: intrinsicValuePerShare ? intrinsicValuePerShare.toFixed(2) : 'N/A',
-      buyPrice: buyPrice ? buyPrice.toFixed(2) : 'N/A',
-      grahamNumber: grahamNumber ? grahamNumber.toFixed(2) : 'N/A',
-      valuationStatus,
-      upsidePercent: upsidePercent.toFixed(2) + '%',
-      additionalMetrics: {
-        roe: ratios[0].returnOnEquity ? (ratios[0].returnOnEquity * 100).toFixed(2) + '%' : 'N/A',
-        roa: ratios[0].returnOnAssets ? (ratios[0].returnOnAssets * 100).toFixed(2) + '%' : 'N/A',
-        debtToEquity: ratios[0].debtToEquity ? ratios[0].debtToEquity.toFixed(2) : 'N/A',
-        currentRatio: ratios[0].currentRatio ? ratios[0].currentRatio.toFixed(2) : 'N/A',
-        grossMargin: ratios[0].grossProfitMargin ? (ratios[0].grossProfitMargin * 100).toFixed(2) + '%' : 'N/A',
-        operatingMargin: ratios[0].operatingProfitMargin ? (ratios[0].operatingProfitMargin * 100).toFixed(2) + '%' : 'N/A',
-        netMargin: ratios[0].netProfitMargin ? (ratios[0].netProfitMargin * 100).toFixed(2) + '%' : 'N/A',
-        peRatio: quote.pe ? quote.pe.toFixed(2) : 'N/A',
-        pbRatio: quote.priceToBookRatio ? quote.priceToBookRatio.toFixed(2) : 'N/A',
-      }
-    };
+  }
+
+  // For positive historical growth, cap at maximum reasonable rate
+  return Math.min(historicalGrowth, maximumGrowthRates[quality]);
+};
+
+/**
+ * Determines appropriate discount rate based on business quality and risk factors
+ * 
+ * @param {string} businessQuality - Business quality category
+ * @param {Object} financialMetrics - Financial metrics including debt ratios
+ * @returns {number} - Appropriate discount rate percentage
+ */
+export const determineDiscountRate = (businessQuality, financialMetrics) => {
+  // Base discount rates by business quality
+  const baseRates = {
+    excellent: 9.0,  // Lower discount rate for highest quality businesses
+    good: 10.0,      // Standard rate for good businesses
+    fair: 12.0,      // Higher rate for fair businesses to account for uncertainty
+    cyclical: 14.0   // Highest base rate for cyclical businesses
   };
+
+  // Default to 'fair' if businessQuality is not recognized
+  const quality = Object.keys(baseRates).includes(businessQuality) 
+    ? businessQuality 
+    : 'fair';
+    
+  let rateAdjustment = 0;
   
-  export default {
-    calculateOwnerEarnings,
-    calculateOwnerEarningsPerShare,
-    calculateGrowthRate,
-    determineDiscountRate,
-    determineMarginOfSafety,
-    calculateIntrinsicValue,
-    calculateIntrinsicValuePerShare,
-    calculateBuyPrice,
-    assessBusinessQuality,
-    calculateGrahamNumber,
-    performValuation
+  // Adjust for debt if available
+  if (financialMetrics && financialMetrics.debtToEquity) {
+    // Add premium for high debt levels
+    if (financialMetrics.debtToEquity > 2.0) {
+      rateAdjustment += 2.0;
+    } else if (financialMetrics.debtToEquity > 1.0) {
+      rateAdjustment += 1.0;
+    }
+  }
+  
+  // Adjust for profitability issues if available
+  if (financialMetrics && financialMetrics.operatingMargin) {
+    if (financialMetrics.operatingMargin < 5.0) {
+      rateAdjustment += 1.0;
+    }
+    // Negative operating margin is a serious concern
+    if (financialMetrics.operatingMargin < 0) {
+      rateAdjustment += 2.0;
+    }
+  }
+  
+  return baseRates[quality] + rateAdjustment;
+};
+
+/**
+ * Determines appropriate margin of safety based on business quality and predictability
+ * 
+ * @param {string} businessQuality - Business quality category
+ * @returns {number} - Appropriate margin of safety percentage
+ */
+export const determineMarginOfSafety = (businessQuality) => {
+  // Margins of safety by business quality
+  const safetyMargins = {
+    excellent: 25, // Even excellent businesses need margin of safety
+    good: 35,      // Good businesses require more caution
+    fair: 40,      // Fair businesses need significant safety margin
+    cyclical: 50   // Cyclical businesses need maximum safety margin
   };
+
+  // Default to 'fair' if businessQuality is not recognized
+  return safetyMargins[businessQuality] || safetyMargins.fair;
+};
+
+/**
+ * Classifies business quality based on financial metrics and industry
+ * 
+ * @param {Object} metrics - Financial metrics
+ * @param {string} sector - Company sector
+ * @param {string} industry - Company industry
+ * @returns {string} - Business quality classification (excellent, good, fair, or cyclical)
+ */
+export const classifyBusinessQuality = (metrics, sector, industry) => {
+  // Default classification
+  let classification = 'fair';
+  
+  // Defensive (non-cyclical) sectors
+  const defensiveSectors = [
+    'Consumer Defensive', 
+    'Healthcare', 
+    'Utilities',
+    'Consumer Non-Cyclical',
+    'Consumer Staples'
+  ];
+  
+  // Typically cyclical sectors
+  const cyclicalSectors = [
+    'Basic Materials',
+    'Energy',
+    'Consumer Cyclical',
+    'Industrials',
+    'Financial Services'
+  ];
+  
+  // Excellent moat industries
+  const excellentMoatIndustries = [
+    'Beverages—Non-Alcoholic',
+    'Tobacco',
+    'Credit Services',
+    'Medical Devices',
+    'Pharmaceutical Retail',
+    'Utilities—Regulated'
+  ];
+  
+  // Check ROE, operating margin, and consistency for business quality
+  if (metrics) {
+    const { roe, operatingMargin, netMargin, roaFiveYearAvg, consistentGrowth } = metrics;
+    
+    // Excellent businesses have high returns and consistent profitability
+    if (roe > 15 && operatingMargin > 20 && netMargin > 10 && consistentGrowth && 
+        (defensiveSectors.includes(sector) || excellentMoatIndustries.includes(industry))) {
+      classification = 'excellent';
+    }
+    // Good businesses have solid returns and profitability
+    else if (roe > 10 && operatingMargin > 10 && netMargin > 5 && 
+             defensiveSectors.includes(sector)) {
+      classification = 'good';
+    }
+    // Cyclical check based on sector and volatility
+    else if (cyclicalSectors.includes(sector) || metrics.earningsVolatility > 30) {
+      classification = 'cyclical';
+    }
+  } else {
+    // Without detailed metrics, classify based on sector alone
+    if (defensiveSectors.includes(sector)) {
+      classification = 'good';
+    } else if (cyclicalSectors.includes(sector)) {
+      classification = 'cyclical';
+    }
+  }
+  
+  return classification;
+};
+
+/**
+ * Calculates intrinsic value using Discounted Cash Flow (DCF) method
+ * Based on owner earnings with normalized growth
+ * 
+ * @param {number} ownerEarnings - Current owner earnings per share
+ * @param {number} growthRate - Projected annual growth rate percentage
+ * @param {number} discountRate - Discount rate percentage
+ * @param {number} terminalGrowthRate - Terminal growth rate percentage
+ * @param {number} yearsProjected - Number of years to project
+ * @returns {number} - Intrinsic value per share
+ */
+export const calculateIntrinsicValue = (ownerEarnings, growthRate, discountRate, terminalGrowthRate, yearsProjected) => {
+  // Convert percentages to decimals
+  const growthDecimal = growthRate / 100;
+  const discountDecimal = discountRate / 100;
+  const terminalGrowthDecimal = terminalGrowthRate / 100;
+  
+  // Calculate present value of projected earnings
+  let presentValueOfEarnings = 0;
+  for (let year = 1; year <= yearsProjected; year++) {
+    const yearEarnings = ownerEarnings * Math.pow(1 + growthDecimal, year);
+    presentValueOfEarnings += yearEarnings / Math.pow(1 + discountDecimal, year);
+  }
+  
+  // Calculate terminal value and its present value
+  const finalYearEarnings = ownerEarnings * Math.pow(1 + growthDecimal, yearsProjected);
+  const terminalValue = finalYearEarnings * (1 + terminalGrowthDecimal) / (discountDecimal - terminalGrowthDecimal);
+  const presentValueOfTerminal = terminalValue / Math.pow(1 + discountDecimal, yearsProjected);
+  
+  // Total intrinsic value
+  return presentValueOfEarnings + presentValueOfTerminal;
+};
+
+/**
+ * Calculates Graham Number
+ * Based on EPS and Book Value per Share
+ * 
+ * @param {number} eps - Earnings per share
+ * @param {number} bookValue - Book value per share
+ * @returns {number} - Graham Number value
+ */
+export const calculateGrahamNumber = (eps, bookValue) => {
+  return Math.sqrt(22.5 * eps * bookValue);
+};
+
+/**
+ * Calculates owner earnings per share
+ * Owner Earnings = Net Income + Depreciation - CapEx - Working Capital Change
+ * 
+ * @param {Object} financials - Financial statement data
+ * @param {number} sharesOutstanding - Shares outstanding
+ * @returns {number} - Owner earnings per share
+ */
+export const calculateOwnerEarnings = (financials, sharesOutstanding) => {
+  if (!financials || !financials.income || !financials.cashFlow || !sharesOutstanding) {
+    return 0;
+  }
+  
+  const netIncome = financials.income.netIncome || 0;
+  const depreciation = financials.cashFlow.depreciation || 0;
+  const capitalExpenditure = Math.abs(financials.cashFlow.capitalExpenditure || 0);
+  const workingCapitalChange = financials.cashFlow.changeInWorkingCapital || 0;
+  
+  const totalOwnerEarnings = netIncome + depreciation - capitalExpenditure - workingCapitalChange;
+  return totalOwnerEarnings / sharesOutstanding;
+};
+
+/**
+ * Provides overall valuation assessment
+ * 
+ * @param {number} currentPrice - Current stock price
+ * @param {number} intrinsicValue - Calculated intrinsic value
+ * @param {number} marginOfSafety - Margin of safety percentage
+ * @returns {Object} - Valuation status and details
+ */
+export const assessValuation = (currentPrice, intrinsicValue, marginOfSafety) => {
+  const safetyPrice = intrinsicValue * (1 - marginOfSafety / 100);
+  const upsidePercentage = ((intrinsicValue - currentPrice) / currentPrice) * 100;
+  
+  let status = '';
+  let description = '';
+  
+  if (currentPrice <= safetyPrice) {
+    status = 'BUY';
+    description = 'Stock is trading below the buy price with sufficient margin of safety.';
+  } else if (currentPrice <= intrinsicValue) {
+    status = 'HOLD/WATCH';
+    description = 'Stock is trading below intrinsic value but without sufficient margin of safety.';
+  } else {
+    status = 'OVERVALUED';
+    description = 'Stock is trading above intrinsic value.';
+  }
+  
+  return {
+    status,
+    description,
+    intrinsicValue,
+    safetyPrice,
+    upsidePercentage
+  };
+};

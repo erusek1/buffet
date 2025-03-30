@@ -147,8 +147,10 @@ export const isStockGoodValue = async (symbol) => {
   }
 };
 
-export default {
+const stockScreenerService = {
   screenQualityStocks,
   fullMarketScan,
   isStockGoodValue
 };
+
+export default stockScreenerService;

@@ -164,7 +164,7 @@ const setPriceAlert = (ticker, alertPrice) => {
   }
 };
 
-export default {
+const watchlistServiceObject = {
   getWatchlist,
   saveWatchlist,
   addToWatchlist,
@@ -172,3 +172,5 @@ export default {
   updateStockNotes,
   setPriceAlert
 };
+
+export default watchlistServiceObject;

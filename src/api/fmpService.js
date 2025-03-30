@@ -1,212 +1,174 @@
-import apiConfig from './apiConfig';
+import axios from 'axios';
 
-// For rate limiting
-let requestsThisMinute = 0;
-let lastResetTime = Date.now();
+// Cache for API responses
+const apiCache = new Map();
 
-// Simple cache implementation
-const cache = {
-  data: {},
-  
-  get(key) {
-    const item = this.data[key];
-    if (!item) return null;
-    
-    if (Date.now() > item.expiry) {
-      delete this.data[key];
-      return null;
-    }
-    
-    return item.value;
-  },
-  
-  set(key, value, ttl) {
-    this.data[key] = {
-      value,
-      expiry: Date.now() + ttl
-    };
-  }
+// API configuration
+const API_CONFIG = {
+  BASE_URL: 'https://financialmodelingprep.com/api/v3',
+  API_KEY: process.env.REACT_APP_FMP_API_KEY || '', // Set your API key in .env file
+  CACHE_DURATION: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
 };
 
 /**
- * Reset rate limit counter if a minute has passed
+ * Makes a request to the Financial Modeling Prep API
+ * @param {string} endpoint - API endpoint
+ * @param {Object} params - Query parameters
+ * @returns {Promise} - Response data
  */
-const checkRateLimit = () => {
-  const now = Date.now();
-  if (now - lastResetTime > 60000) {
-    // Reset if a minute has passed
-    requestsThisMinute = 0;
-    lastResetTime = now;
-  }
-  
-  if (requestsThisMinute >= apiConfig.rateLimit.requestsPerMinute) {
-    throw new Error('API rate limit reached. Please try again in a minute.');
-  }
-  
-  requestsThisMinute++;
-};
-
-/**
- * Make an API request with rate limiting and caching
- */
-const makeRequest = async (endpoint, params = {}, cacheTTL = null) => {
-  // Build the URL
-  const url = new URL(`${apiConfig.baseUrl}${endpoint}`);
-  
-  // Add API key
-  url.searchParams.append('apikey', apiConfig.apiKey);
-  
-  // Add other parameters
-  Object.entries(params).forEach(([key, value]) => {
-    url.searchParams.append(key, value);
-  });
-  
-  const cacheKey = url.toString();
-  
-  // Check cache first if TTL is provided
-  if (cacheTTL !== null) {
-    const cachedData = cache.get(cacheKey);
-    if (cachedData) return cachedData;
-  }
-  
-  // Check rate limit
-  checkRateLimit();
-  
+const fetchFromAPI = async (endpoint, params = {}) => {
   try {
-    const response = await fetch(url.toString());
+    // Create cache key based on endpoint and parameters
+    const cacheKey = `${endpoint}_${JSON.stringify(params)}`;
     
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    // Check cache first
+    const cachedData = apiCache.get(cacheKey);
+    if (cachedData && Date.now() < cachedData.expiry) {
+      return cachedData.data;
     }
     
-    const data = await response.json();
+    // Add API key to parameters
+    params.apikey = API_CONFIG.API_KEY;
     
-    // Cache the result if TTL is provided
-    if (cacheTTL !== null) {
-      cache.set(cacheKey, data, cacheTTL);
-    }
+    // Make the request
+    const response = await axios.get(`${API_CONFIG.BASE_URL}${endpoint}`, {
+      params,
+    });
     
-    return data;
+    // Cache the response
+    apiCache.set(cacheKey, {
+      data: response.data,
+      expiry: Date.now() + API_CONFIG.CACHE_DURATION,
+    });
+    
+    return response.data;
   } catch (error) {
-    console.error('API request failed:', error);
-    throw error;
+    console.error('API Error:', error);
+    
+    // Extract error message from API response if available
+    const errorMessage = error.response?.data?.error || 'API request failed';
+    const statusCode = error.response?.status || 500;
+    
+    throw new Error(`API error: ${statusCode} - ${errorMessage}`);
   }
 };
 
 /**
- * Get company profile
+ * Get company profile data
+ * @param {string} symbol - Stock ticker symbol
+ * @returns {Promise} - Company profile data
  */
 export const getCompanyProfile = async (symbol) => {
-  return makeRequest(apiConfig.endpoints.profile + symbol, {}, apiConfig.cache.stockDataTTL);
+  return fetchFromAPI(`/profile/${symbol}`);
 };
 
 /**
- * Get current stock quote
+ * Get company's income statement data
+ * @param {string} symbol - Stock ticker symbol
+ * @param {number} limit - Number of periods to fetch
+ * @returns {Promise} - Income statement data
  */
-export const getStockQuote = async (symbol) => {
-  return makeRequest(apiConfig.endpoints.quote + symbol, {}, 15 * 60 * 1000); // 15 minutes cache
+export const getIncomeStatement = async (symbol, limit = 5) => {
+  return fetchFromAPI(`/income-statement/${symbol}`, { limit });
 };
 
 /**
- * Get income statements
+ * Get company's balance sheet data
+ * @param {string} symbol - Stock ticker symbol
+ * @param {number} limit - Number of periods to fetch
+ * @returns {Promise} - Balance sheet data
  */
-export const getIncomeStatements = async (symbol, limit = 5) => {
-  return makeRequest(apiConfig.endpoints.income + symbol, { limit }, apiConfig.cache.financialStatementsTTL);
+export const getBalanceSheet = async (symbol, limit = 5) => {
+  return fetchFromAPI(`/balance-sheet-statement/${symbol}`, { limit });
 };
 
 /**
- * Get balance sheet statements
+ * Get company's cash flow statement data
+ * @param {string} symbol - Stock ticker symbol
+ * @param {number} limit - Number of periods to fetch
+ * @returns {Promise} - Cash flow statement data
  */
-export const getBalanceSheets = async (symbol, limit = 5) => {
-  return makeRequest(apiConfig.endpoints.balance + symbol, { limit }, apiConfig.cache.financialStatementsTTL);
+export const getCashFlow = async (symbol, limit = 5) => {
+  return fetchFromAPI(`/cash-flow-statement/${symbol}`, { limit });
 };
 
 /**
- * Get cash flow statements
- */
-export const getCashFlowStatements = async (symbol, limit = 5) => {
-  return makeRequest(apiConfig.endpoints.cashflow + symbol, { limit }, apiConfig.cache.financialStatementsTTL);
-};
-
-/**
- * Get key metrics
+ * Get company's key metrics
+ * @param {string} symbol - Stock ticker symbol
+ * @param {number} limit - Number of periods to fetch
+ * @returns {Promise} - Key metrics data
  */
 export const getKeyMetrics = async (symbol, limit = 5) => {
-  return makeRequest(apiConfig.endpoints.metrics + symbol, { limit }, apiConfig.cache.financialStatementsTTL);
+  return fetchFromAPI(`/key-metrics/${symbol}`, { limit });
 };
 
 /**
- * Get financial ratios
+ * Get company's ratios
+ * @param {string} symbol - Stock ticker symbol
+ * @param {number} limit - Number of periods to fetch
+ * @returns {Promise} - Ratios data
  */
-export const getFinancialRatios = async (symbol, limit = 5) => {
-  return makeRequest(apiConfig.endpoints.ratios + symbol, { limit }, apiConfig.cache.financialStatementsTTL);
+export const getRatios = async (symbol, limit = 5) => {
+  return fetchFromAPI(`/ratios/${symbol}`, { limit });
 };
 
 /**
- * Get all financial data for a company in one call
+ * Get all financial statements in one call
+ * @param {string} symbol - Stock ticker symbol
+ * @returns {Promise} - Object containing all financial statements
  */
-export const getCompanyFinancials = async (symbol) => {
+export const getFinancialStatements = async (symbol) => {
   try {
-    const [profile, quote, incomeStatements, balanceSheets, cashFlows, metrics, ratios] = await Promise.all([
-      getCompanyProfile(symbol),
-      getStockQuote(symbol),
-      getIncomeStatements(symbol),
-      getBalanceSheets(symbol),
-      getCashFlowStatements(symbol),
+    // Make parallel requests for all financial data
+    const [incomeStatement, balanceSheet, cashFlow, keyMetrics, ratios] = await Promise.all([
+      getIncomeStatement(symbol),
+      getBalanceSheet(symbol),
+      getCashFlow(symbol),
       getKeyMetrics(symbol),
-      getFinancialRatios(symbol)
+      getRatios(symbol),
     ]);
     
     return {
-      profile: profile[0] || {},
-      quote: quote[0] || {},
-      incomeStatements: incomeStatements || [],
-      balanceSheets: balanceSheets || [],
-      cashFlows: cashFlows || [],
-      metrics: metrics || [],
-      ratios: ratios || []
+      incomeStatement,
+      balanceSheet,
+      cashFlow,
+      keyMetrics,
+      ratios,
     };
   } catch (error) {
-    console.error('Failed to fetch company financials:', error);
+    console.error('Error fetching financial statements:', error);
     throw error;
   }
 };
 
 /**
- * Get multiple stock quotes in batch
- * Only available on Premium plan and above
+ * Test API connection and authentication
+ * @returns {Promise} - Test result
  */
-export const getBatchQuotes = async (symbols) => {
-  if (!symbols || symbols.length === 0) {
-    return [];
+export const testAPIConnection = async () => {
+  try {
+    // Try to fetch a well-known stock to test connection
+    const result = await getCompanyProfile('AAPL');
+    return {
+      success: true,
+      message: 'API connection successful',
+      data: result,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error.message || 'API connection failed',
+    };
   }
-  
-  // Batch limit enforcement
-  if (symbols.length > apiConfig.rateLimit.maxBatchSize) {
-    console.warn(`Batch size exceeds limit. Splitting into multiple requests.`);
-    
-    const results = [];
-    for (let i = 0; i < symbols.length; i += apiConfig.rateLimit.maxBatchSize) {
-      const batch = symbols.slice(i, i + apiConfig.rateLimit.maxBatchSize);
-      const batchResults = await getBatchQuotes(batch);
-      results.push(...batchResults);
-    }
-    
-    return results;
-  }
-  
-  const symbolsString = symbols.join(',');
-  return makeRequest(apiConfig.endpoints.quote + symbolsString, {}, 15 * 60 * 1000);
 };
 
 export default {
   getCompanyProfile,
-  getStockQuote,
-  getIncomeStatements,
-  getBalanceSheets,
-  getCashFlowStatements,
+  getIncomeStatement,
+  getBalanceSheet,
+  getCashFlow,
   getKeyMetrics,
-  getFinancialRatios,
-  getCompanyFinancials,
-  getBatchQuotes
+  getRatios,
+  getFinancialStatements,
+  testAPIConnection,
 };

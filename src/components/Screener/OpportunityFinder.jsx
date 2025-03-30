@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+// src/components/Screener/OpportunityFinder.jsx
+import React, { useState } from 'react';
 import { screenQualityStocks } from '../../services/analysis/stockScreener';
 
 const OpportunityFinder = () => {
