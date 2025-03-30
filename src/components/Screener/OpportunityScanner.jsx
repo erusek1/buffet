@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../UI/Card';
 import { Button } from '../UI/Button';
 import LoadingIndicator from '../UI/LoadingIndicator';
+import fmpService from '../../api/fmpService';
+import calculationService from '../../services/analysis/calculationService';
+import dataProcessingService from '../../services/analysis/dataProcessingService';
 
 const OpportunityScanner = () => {
   const [isScanning, setIsScanning] = useState(false);
@@ -17,215 +20,160 @@ const OpportunityScanner = () => {
     sortDirection: 'desc'
   });
   
-  // Mock available sectors for filtering
+  // Available sectors for filtering
   const availableSectors = [
     'All', 'Technology', 'Healthcare', 'Financials', 'Consumer Staples', 
     'Consumer Discretionary', 'Industrials', 'Energy', 'Utilities', 
     'Materials', 'Communication Services', 'Real Estate'
   ];
   
-  // Mock stock opportunities data (in real app would come from API)
-  const mockOpportunities = [
-    {
-      ticker: 'CI',
-      company: 'Cigna Group',
-      sector: 'Healthcare',
-      marketCap: 83.4,
-      currentPrice: 279.32,
-      intrinsicValue: 400.22,
-      valuationRatio: 0.70,
-      potentialReturn: 43.3,
-      moatRating: 3,
-      moatDescription: 'Scale in healthcare services, integrated model',
-      businessQuality: 'good',
-      buyBelowPrice: 300.16
-    },
-    {
-      ticker: 'JNJ',
-      company: 'Johnson & Johnson',
-      sector: 'Healthcare',
-      marketCap: 344.8,
-      currentPrice: 142.27,
-      intrinsicValue: 168.60,
-      valuationRatio: 0.84,
-      potentialReturn: 18.5,
-      moatRating: 5,
-      moatDescription: 'Diversified healthcare leader, essential products',
-      businessQuality: 'excellent',
-      buyBelowPrice: 126.45
-    },
-    {
-      ticker: 'CVX',
-      company: 'Chevron Corporation',
-      sector: 'Energy',
-      marketCap: 278.2,
-      currentPrice: 150.31,
-      intrinsicValue: 196.75,
-      valuationRatio: 0.76,
-      potentialReturn: 31.0,
-      moatRating: 3,
-      moatDescription: 'Scale advantages, integrated operations, strong balance sheet',
-      businessQuality: 'good',
-      buyBelowPrice: 147.57
-    },
-    {
-      ticker: 'PG',
-      company: 'Procter & Gamble',
-      sector: 'Consumer Staples',
-      marketCap: 382.1,
-      currentPrice: 162.10,
-      intrinsicValue: 156.40,
-      valuationRatio: 1.04,
-      potentialReturn: -3.5,
-      moatRating: 4,
-      moatDescription: 'Brand strength, distribution dominance',
-      businessQuality: 'excellent',
-      buyBelowPrice: 117.30
-    },
-    {
-      ticker: 'UNP',
-      company: 'Union Pacific',
-      sector: 'Industrials',
-      marketCap: 141.8,
-      currentPrice: 231.82,
-      intrinsicValue: 125.10,
-      valuationRatio: 1.85,
-      potentialReturn: -46.1,
-      moatRating: 4,
-      moatDescription: 'Irreplaceable rail network, high barriers to entry',
-      businessQuality: 'excellent',
-      buyBelowPrice: 93.82
-    },
-    {
-      ticker: 'KO',
-      company: 'Coca-Cola',
-      sector: 'Consumer Staples',
-      marketCap: 266.4,
-      currentPrice: 61.67,
-      intrinsicValue: 68.40,
-      valuationRatio: 0.90,
-      potentialReturn: 10.9,
-      moatRating: 5,
-      moatDescription: 'Unmatched distribution, century-proven brand',
-      businessQuality: 'excellent',
-      buyBelowPrice: 51.30
-    },
-    {
-      ticker: 'V',
-      company: 'Visa',
-      sector: 'Financials',
-      marketCap: 644.6,
-      currentPrice: 312.48,
-      intrinsicValue: 284.60,
-      valuationRatio: 1.10,
-      potentialReturn: -8.9,
-      moatRating: 5,
-      moatDescription: 'Dominant network, high switching costs',
-      businessQuality: 'excellent',
-      buyBelowPrice: 213.45
-    },
-    {
-      ticker: 'COST',
-      company: 'Costco',
-      sector: 'Consumer Staples',
-      marketCap: 411.2,
-      currentPrice: 927.37,
-      intrinsicValue: 684.50,
-      valuationRatio: 1.35,
-      potentialReturn: -26.2,
-      moatRating: 4,
-      moatDescription: 'Low-cost leader, membership loyalty',
-      businessQuality: 'good',
-      buyBelowPrice: 513.40
-    },
-    {
-      ticker: 'UPS',
-      company: 'United Parcel Service',
-      sector: 'Industrials',
-      marketCap: 109.3,
-      currentPrice: 126.76,
-      intrinsicValue: 148.40,
-      valuationRatio: 0.85,
-      potentialReturn: 17.1,
-      moatRating: 3,
-      moatDescription: 'Scale advantages, network density',
-      businessQuality: 'good',
-      buyBelowPrice: 111.30
-    },
-    {
-      ticker: 'HD',
-      company: 'Home Depot',
-      sector: 'Consumer Discretionary',
-      marketCap: 340.9,
-      currentPrice: 342.87,
-      intrinsicValue: 321.40,
-      valuationRatio: 1.07,
-      potentialReturn: -6.3,
-      moatRating: 3,
-      moatDescription: 'Scale advantages, brand recognition',
-      businessQuality: 'good',
-      buyBelowPrice: 241.05
-    },
-    {
-      ticker: 'JPM',
-      company: 'JPMorgan Chase',
-      sector: 'Financials',
-      marketCap: 517.6,
-      currentPrice: 182.79,
-      intrinsicValue: 193.60,
-      valuationRatio: 0.94,
-      potentialReturn: 5.9,
-      moatRating: 3,
-      moatDescription: 'Scale advantages, regulatory barriers',
-      businessQuality: 'good',
-      buyBelowPrice: 145.20
-    },
-    {
-      ticker: 'MSFT',
-      company: 'Microsoft',
-      sector: 'Technology',
-      marketCap: 2944.0,
-      currentPrice: 425.52,
-      intrinsicValue: 375.40,
-      valuationRatio: 1.13,
-      potentialReturn: -11.8,
-      moatRating: 5,
-      moatDescription: 'Network effects, high switching costs',
-      businessQuality: 'excellent',
-      buyBelowPrice: 281.55
-    }
-  ];
-  
-  // Simulate scanning the market for value opportunities
-  const startScan = () => {
-    setIsScanning(true);
-    setScanProgress(0);
-    setScanResults([]);
-    setCurrentBatch('Retrieving S&P 500 constituents...');
-    
-    // Simulate scanning process with progress updates
-    const totalSteps = 5;
-    const steps = [
-      'Retrieving S&P 500 constituents...',
-      'Fetching financial data...',
-      'Calculating intrinsic values...',
-      'Applying valuation filters...',
-      'Ranking opportunities...'
-    ];
-    
-    let currentStep = 0;
-    
-    const scanInterval = setInterval(() => {
-      if (currentStep < totalSteps) {
-        setCurrentBatch(steps[currentStep]);
-        setScanProgress(Math.round((currentStep + 1) / totalSteps * 100));
-        currentStep++;
-      } else {
-        clearInterval(scanInterval);
-        setIsScanning(false);
-        setScanResults(mockOpportunities);
+  // Start scanning the market for value opportunities using real API data
+  const startScan = async () => {
+    try {
+      setIsScanning(true);
+      setScanProgress(0);
+      setScanResults([]);
+      
+      // Step 1: Get quality stock universe
+      setCurrentBatch('Retrieving quality stock symbols...');
+      setScanProgress(10);
+      
+      // Use a predefined list of high-quality stocks to start
+      const qualityStocks = [
+        'JNJ', 'PG', 'KO', 'MSFT', 'AAPL', 'BRK.B', 'JPM', 'V', 
+        'HD', 'PEP', 'UNP', 'UPS', 'COST', 'MCD', 'CVX', 'CI'
+      ];
+      
+      // Step 2: Fetch quotes for these stocks
+      setCurrentBatch('Fetching current price data...');
+      setScanProgress(30);
+      
+      const quotes = await fmpService.getBatchQuotes(qualityStocks);
+      
+      if (!quotes || quotes.length === 0) {
+        throw new Error('Failed to fetch stock quotes');
       }
-    }, 1500);
+      
+      // Step 3: Get detailed financial data and calculate valuations
+      setCurrentBatch('Analyzing financial data and calculating intrinsic values...');
+      setScanProgress(50);
+      
+      const analysis = [];
+      const totalStocks = Math.min(quotes.length, 5); // Limit to 5 stocks to avoid API rate limits
+      
+      for (let i = 0; i < totalStocks; i++) {
+        const quote = quotes[i];
+        
+        // Update progress for each stock analysis
+        const progressPerStock = 40 / totalStocks; // 40% of progress bar dedicated to stock analysis
+        setCurrentBatch(`Analyzing ${quote.symbol} (${i+1}/${totalStocks})...`);
+        setScanProgress(50 + (i / totalStocks) * 40);
+        
+        try {
+          // Get full financial data
+          const financialData = await fmpService.getFinancialStatements(quote.symbol);
+          
+          // Assess business quality
+          let moatRating = 3; // Default moat rating
+          let businessQuality = 'fair'; // Default business quality
+          
+          if (financialData.ratios && financialData.ratios.length > 0) {
+            const ratios = financialData.ratios[0];
+            const roe = ratios.returnOnEquity ? ratios.returnOnEquity * 100 : 0;
+            const grossMargin = ratios.grossProfitMargin ? ratios.grossProfitMargin * 100 : 0;
+            
+            // Simple moat assessment based on ROE and gross margins
+            if (roe > 20 && grossMargin > 40) {
+              moatRating = 5;
+              businessQuality = 'excellent';
+            } else if (roe > 15 && grossMargin > 30) {
+              moatRating = 4;
+              businessQuality = 'good';
+            } else if (roe > 10 && grossMargin > 25) {
+              moatRating = 3;
+              businessQuality = 'fair';
+            } else {
+              moatRating = 2;
+              businessQuality = 'cyclical';
+            }
+          }
+          
+          // Create stock data object for valuation calculation
+          const stockData = {
+            ticker: quote.symbol,
+            name: quote.name,
+            currentPrice: quote.price,
+            eps: quote.eps || 0,
+            bookValuePerShare: quote.bookValue || 0,
+            businessQuality,
+            historicalGrowthRate: 5, // Default growth rate
+            ownerEarningsPerShare: quote.eps || 0 // Simplified, using EPS
+          };
+          
+          // Calculate intrinsic value
+          const valuation = calculationService.calculateIntrinsicValue(stockData, {
+            businessQuality
+          });
+          
+          // Get sector from profile data
+          const sector = financialData.profile && financialData.profile.length > 0 
+            ? financialData.profile[0].sector 
+            : 'Unknown';
+          
+          // Get market cap from profile data
+          const marketCap = financialData.profile && financialData.profile.length > 0 
+            ? (financialData.profile[0].mktCap / 1000000000) // Convert to billions
+            : 0;
+          
+          // Create result object
+          analysis.push({
+            ticker: quote.symbol,
+            company: quote.name,
+            sector,
+            marketCap,
+            currentPrice: quote.price,
+            intrinsicValue: valuation.results.intrinsicValue,
+            valuationRatio: quote.price / valuation.results.intrinsicValue,
+            potentialReturn: valuation.results.upsidePercent,
+            moatRating,
+            moatDescription: getMoatDescription(moatRating),
+            businessQuality,
+            buyBelowPrice: valuation.results.buyBelowPrice
+          });
+        } catch (error) {
+          console.error(`Error analyzing ${quote.symbol}:`, error);
+          // Skip failed analysis but continue with next stock
+        }
+      }
+      
+      // Step 4: Sort results
+      setCurrentBatch('Ranking opportunities...');
+      setScanProgress(95);
+      
+      const sortedResults = analysis.sort((a, b) => b.potentialReturn - a.potentialReturn);
+      
+      // Step 5: Complete
+      setScanProgress(100);
+      setScanResults(sortedResults);
+      setIsScanning(false);
+      
+    } catch (error) {
+      console.error('Error in market scan:', error);
+      setScanResults([]);
+      setCurrentBatch(`Error: ${error.message}`);
+      setIsScanning(false);
+    }
+  };
+  
+  // Get moat description based on rating
+  const getMoatDescription = (rating) => {
+    switch(rating) {
+      case 5: return 'Exceptional competitive advantage, industry leader';
+      case 4: return 'Strong brand, scale advantages, high switching costs';
+      case 3: return 'Solid market position, some differentiation';
+      case 2: return 'Limited competitive advantage';
+      default: return 'No significant moat';
+    }
   };
   
   const handleFilterChange = (e) => {
@@ -456,13 +404,13 @@ const OpportunityScanner = () => {
                       </td>
                       <td className="p-3 border">{stock.sector}</td>
                       <td className="p-3 text-right border">${stock.marketCap.toFixed(1)}</td>
-                      <td className="p-3 text-right border">${stock.currentPrice.toFixed(2)}</td>
-                      <td className="p-3 text-right border text-blue-600">${stock.intrinsicValue.toFixed(2)}</td>
+                      <td className="p-3 text-right border">${stock.currentPrice?.toFixed(2) || 'N/A'}</td>
+                      <td className="p-3 text-right border text-blue-600">${stock.intrinsicValue?.toFixed(2) || 'N/A'}</td>
                       <td className={`p-3 text-right border ${getValuationColor(stock.valuationRatio)}`}>
-                        {stock.valuationRatio.toFixed(2)}x
+                        {stock.valuationRatio?.toFixed(2) || 'N/A'}x
                       </td>
                       <td className={`p-3 text-right border ${getReturnColor(stock.potentialReturn)}`}>
-                        {stock.potentialReturn >= 0 ? '+' : ''}{stock.potentialReturn.toFixed(1)}%
+                        {stock.potentialReturn >= 0 ? '+' : ''}{stock.potentialReturn?.toFixed(1) || 'N/A'}%
                       </td>
                       <td className="p-3 text-center border text-yellow-500">
                         {getMoatStars(stock.moatRating)}
@@ -487,8 +435,11 @@ const OpportunityScanner = () => {
           <CardContent className="p-6">
             <h3 className="font-semibold mb-2">Market Insights</h3>
             <p className="text-sm text-gray-600">
-              The current market appears to have limited value opportunities with only {filteredResults.filter(s => s.valuationRatio < 0.9).length} stocks 
-              trading below 90% of their intrinsic value. Patience is essential in this environment.
+              The current market analysis shows {filteredResults.filter(s => s.valuationRatio < 0.9).length} stocks 
+              trading below 90% of their intrinsic value out of {filteredResults.length} analyzed. 
+              {filteredResults.filter(s => s.valuationRatio < 0.9).length < 3 
+                ? " Patience may be essential in this environment."
+                : " There appear to be some potential value opportunities worth investigating further."}
             </p>
             <p className="mt-4 text-sm text-gray-600">
               "The stock market is a device for transferring money from the impatient to the patient." - Warren Buffett
