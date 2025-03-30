@@ -230,6 +230,90 @@ export const testAPIConnection = async () => {
   }
 };
 
+/**
+ * Get full financial data for multiple stocks
+ * This is used for the opportunity scanner
+ */
+export const getBatchStockData = async (symbols) => {
+  if (!symbols || symbols.length === 0) {
+    return [];
+  }
+  
+  // Process in smaller batches to avoid overwhelming the API
+  const batchSize = 5;
+  const results = [];
+  
+  for (let i = 0; i < symbols.length; i += batchSize) {
+    const batchSymbols = symbols.slice(i, i + batchSize);
+    
+    try {
+      // Process stocks in parallel within the batch
+      const batchResults = await Promise.all(
+        batchSymbols.map(async (symbol) => {
+          try {
+            return await getCompanyFinancials(symbol);
+          } catch (error) {
+            console.warn(`Error fetching data for ${symbol}:`, error);
+            return null;
+          }
+        })
+      );
+      
+      // Add valid results to the final array
+      results.push(...batchResults.filter(Boolean));
+      
+      // Brief pause to avoid hitting rate limits
+      if (i + batchSize < symbols.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    } catch (error) {
+      console.error(`Error processing batch of symbols:`, error);
+      // Continue with the next batch even if there's an error
+    }
+  }
+  
+  return results;
+};
+
+/**
+ * Get market screener results based on specified criteria
+ * Used for initial filtering of stocks
+ */
+export const getMarketScreener = async (screenParams) => {
+  try {
+    // Use the stock screener endpoint
+    const results = await makeRequest(apiConfig.endpoints.screener, screenParams, 60 * 60 * 1000); // 1 hour cache
+    
+    return results || [];
+  } catch (error) {
+    console.error('Market screener error:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get a list of all traded symbols
+ * This is useful for the opportunity scanner to get all available stocks
+ */
+export const getAllSymbols = async () => {
+  try {
+    const result = await makeRequest(apiConfig.endpoints.symbols, {}, 24 * 60 * 60 * 1000); // 24 hour cache
+    
+    // Filter to keep only common stocks from major exchanges
+    return result.filter(stock => {
+      const type = stock.type?.toUpperCase();
+      const exchange = stock.exchange?.toUpperCase();
+      
+      // Keep common stocks from major exchanges
+      return type === 'STOCK' && 
+        ['NYSE', 'NASDAQ', 'AMEX', 'EURONEXT', 'TSX', 'LSE'].includes(exchange);
+    });
+  } catch (error) {
+    console.error('Error fetching all symbols:', error);
+    throw error;
+  }
+};
+
 // Create a proper service object
 const fmpService = {
   getCompanyProfile,
@@ -245,7 +329,10 @@ const fmpService = {
 =======
   getFinancialRatios,
   getCompanyFinancials,
-  getBatchQuotes
+  getBatchQuotes,
+  getBatchStockData,
+  getMarketScreener,
+  getAllSymbols
 };
 
 export default fmpService;

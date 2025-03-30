@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import ValuationCalculator from './components/Analysis/ValuationCalculator';
 import OpportunityFinder from './components/Screener/OpportunityFinder';
+import OpportunityScanner from './components/Screener/OpportunityScanner';
 import WatchlistManager from './components/Watchlist/WatchlistManager';
 import ApiTestComponent from './components/Analysis/ApiTestComponent';
 
@@ -19,6 +20,7 @@ const App = () => {
                 <div className="hidden md:flex items-center space-x-1">
                   <Link to="/" className="py-4 px-3 hover:bg-blue-600">Valuation Calculator</Link>
                   <Link to="/opportunities" className="py-4 px-3 hover:bg-blue-600">Opportunity Finder</Link>
+                  <Link to="/scanner" className="py-4 px-3 hover:bg-blue-600">Market Scanner</Link>
                   <Link to="/watchlist" className="py-4 px-3 hover:bg-blue-600">Watchlist</Link>
                   <Link to="/api-test" className="py-4 px-3 hover:bg-blue-600 text-yellow-300">API Test</Link>
                 </div>
@@ -31,6 +33,7 @@ const App = () => {
           <Routes>
             <Route path="/" element={<ValuationCalculator />} />
             <Route path="/opportunities" element={<OpportunityFinder />} />
+            <Route path="/scanner" element={<OpportunityScanner />} />
             <Route path="/watchlist" element={<WatchlistManager />} />
             <Route path="/api-test" element={<ApiTestComponent />} />
           </Routes>
