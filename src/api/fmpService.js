@@ -8,17 +8,18 @@ const API_CONFIG = {
   BASE_URL: 'https://financialmodelingprep.com/api/v3',
   API_KEY: process.env.REACT_APP_FMP_API_KEY || '', // Set your API key in .env file
   CACHE_DURATION: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
+  RATE_LIMIT: {
+    REQUESTS_PER_MINUTE: 30 // Default rate limit
+  }
 };
 
+// Rate limiting variables
+let requestsThisMinute = 0;
+let lastResetTime = Date.now();
+
 /**
- * Makes a request to the Financial Modeling Prep API
- * @param {string} endpoint - API endpoint
- * @param {Object} params - Query parameters
- * @returns {Promise} - Response data
+ * Check if we're within rate limits
  */
-<<<<<<< HEAD
-const fetchFromAPI = async (endpoint, params = {}) => {
-=======
 const checkRateLimit = () => {
   const now = Date.now();
   if (now - lastResetTime > 60000) {
@@ -27,7 +28,7 @@ const checkRateLimit = () => {
     lastResetTime = now;
   }
   
-  if (requestsThisMinute >= apiConfig.rateLimit.requestsPerMinute) {
+  if (requestsThisMinute >= API_CONFIG.RATE_LIMIT.REQUESTS_PER_MINUTE) {
     throw new Error('API rate limit reached. Please try again in a minute.');
   }
   
@@ -35,58 +36,37 @@ const checkRateLimit = () => {
 };
 
 /**
- * Make an API request with rate limiting and caching
+ * Makes a request to the Financial Modeling Prep API
+ * @param {string} endpoint - API endpoint
+ * @param {Object} params - Query parameters
+ * @returns {Promise} - Response data
  */
-const makeRequest = async (endpoint, params = {}, cacheTTL = null) => {
-  // Build the URL
-  const url = new URL(`${apiConfig.baseUrl}${endpoint}`);
-  
-  // Add API key
-  url.searchParams.append('apikey', apiConfig.apiKey);
-  
-  // Debug: log API key (partial for security)
-  console.log(`Using API key: ${apiConfig.apiKey.substring(0, 5)}...${apiConfig.apiKey.substring(apiConfig.apiKey.length - 5)}`);
-  
-  // Add other parameters
-  Object.entries(params).forEach(([key, value]) => {
-    url.searchParams.append(key, value);
-  });
-  
-  const cacheKey = url.toString();
-  console.log(`Making API request to: ${url.toString()}`);
-  
-  // Check cache first if TTL is provided
-  if (cacheTTL !== null) {
-    const cachedData = cache.get(cacheKey);
-    if (cachedData) {
-      console.log('Returning cached data');
-      return cachedData;
-    }
-  }
-  
-  // Check rate limit
-  checkRateLimit();
-  
->>>>>>> 8b6e456c631ecf3a6ae9761eb36ca24777a0a583
+const fetchFromAPI = async (endpoint, params = {}) => {
   try {
     // Create cache key based on endpoint and parameters
     const cacheKey = `${endpoint}_${JSON.stringify(params)}`;
     
-<<<<<<< HEAD
     // Check cache first
     const cachedData = apiCache.get(cacheKey);
     if (cachedData && Date.now() < cachedData.expiry) {
+      console.log(`Using cached data for ${endpoint}`);
       return cachedData.data;
-=======
-    if (!response.ok) {
-      console.error(`API error: ${response.status} ${response.statusText}`);
-      console.error('Response details:', await response.text());
-      throw new Error(`API error: ${response.status} ${response.statusText}`);
->>>>>>> 8b6e456c631ecf3a6ae9761eb36ca24777a0a583
     }
+    
+    // Check rate limit
+    checkRateLimit();
     
     // Add API key to parameters
     params.apikey = API_CONFIG.API_KEY;
+    
+    // Debug: log API key (partial for security)
+    if (API_CONFIG.API_KEY) {
+      const maskedKey = API_CONFIG.API_KEY.substring(0, 3) + '...' + 
+        API_CONFIG.API_KEY.substring(API_CONFIG.API_KEY.length - 3);
+      console.log(`Using API key: ${maskedKey} for endpoint: ${endpoint}`);
+    } else {
+      console.warn('No API key provided. Set REACT_APP_FMP_API_KEY in .env file');
+    }
     
     // Make the request
     const response = await axios.get(`${API_CONFIG.BASE_URL}${endpoint}`, {
@@ -118,6 +98,15 @@ const makeRequest = async (endpoint, params = {}, cacheTTL = null) => {
  */
 export const getCompanyProfile = async (symbol) => {
   return fetchFromAPI(`/profile/${symbol}`);
+};
+
+/**
+ * Get current stock price quote
+ * @param {string} symbol - Stock ticker symbol
+ * @returns {Promise} - Stock quote data
+ */
+export const getStockQuote = async (symbol) => {
+  return fetchFromAPI(`/quote/${symbol}`);
 };
 
 /**
@@ -177,26 +166,21 @@ export const getRatios = async (symbol, limit = 5) => {
  */
 export const getFinancialStatements = async (symbol) => {
   try {
-<<<<<<< HEAD
+    console.log(`Fetching financial data for: ${symbol}`);
     // Make parallel requests for all financial data
-    const [incomeStatement, balanceSheet, cashFlow, keyMetrics, ratios] = await Promise.all([
+    const [profile, quote, incomeStatement, balanceSheet, cashFlow, keyMetrics, ratios] = await Promise.all([
+      getCompanyProfile(symbol),
+      getStockQuote(symbol),
       getIncomeStatement(symbol),
       getBalanceSheet(symbol),
       getCashFlow(symbol),
-=======
-    console.log(`Fetching financial data for: ${symbol}`);
-    const [profile, quote, incomeStatements, balanceSheets, cashFlows, metrics, ratios] = await Promise.all([
-      getCompanyProfile(symbol),
-      getStockQuote(symbol),
-      getIncomeStatements(symbol),
-      getBalanceSheets(symbol),
-      getCashFlowStatements(symbol),
->>>>>>> 8b6e456c631ecf3a6ae9761eb36ca24777a0a583
       getKeyMetrics(symbol),
       getRatios(symbol),
     ]);
     
     return {
+      profile,
+      quote,
       incomeStatement,
       balanceSheet,
       cashFlow,
@@ -251,7 +235,7 @@ export const getBatchStockData = async (symbols) => {
       const batchResults = await Promise.all(
         batchSymbols.map(async (symbol) => {
           try {
-            return await getCompanyFinancials(symbol);
+            return await getFinancialStatements(symbol);
           } catch (error) {
             console.warn(`Error fetching data for ${symbol}:`, error);
             return null;
@@ -282,7 +266,7 @@ export const getBatchStockData = async (symbols) => {
 export const getMarketScreener = async (screenParams) => {
   try {
     // Use the stock screener endpoint
-    const results = await makeRequest(apiConfig.endpoints.screener, screenParams, 60 * 60 * 1000); // 1 hour cache
+    const results = await fetchFromAPI('/stock-screener', screenParams);
     
     return results || [];
   } catch (error) {
@@ -297,7 +281,7 @@ export const getMarketScreener = async (screenParams) => {
  */
 export const getAllSymbols = async () => {
   try {
-    const result = await makeRequest(apiConfig.endpoints.symbols, {}, 24 * 60 * 60 * 1000); // 24 hour cache
+    const result = await fetchFromAPI('/stock/list');
     
     // Filter to keep only common stocks from major exchanges
     return result.filter(stock => {
@@ -317,23 +301,17 @@ export const getAllSymbols = async () => {
 // Create a proper service object
 const fmpService = {
   getCompanyProfile,
+  getStockQuote,
   getIncomeStatement,
   getBalanceSheet,
   getCashFlow,
   getKeyMetrics,
-<<<<<<< HEAD
   getRatios,
   getFinancialStatements,
   testAPIConnection,
-};
-=======
-  getFinancialRatios,
-  getCompanyFinancials,
-  getBatchQuotes,
   getBatchStockData,
   getMarketScreener,
   getAllSymbols
 };
 
 export default fmpService;
->>>>>>> 8b6e456c631ecf3a6ae9761eb36ca24777a0a583
