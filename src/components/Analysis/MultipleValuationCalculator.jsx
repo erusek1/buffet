@@ -12,7 +12,7 @@ const MultipleValuationCalculator = () => {
   
   const [inputs, setInputs] = useState({
     // DCF Inputs
-    currentEarnings: 25.3,
+    currentEarnings: 0,
     growthRate: 5,
     yearsProjected: 10,
     discountRate: 10,
@@ -20,23 +20,23 @@ const MultipleValuationCalculator = () => {
     marginOfSafety: 25,
     
     // Graham Number Inputs
-    eps: 25.3,
-    bookValue: 180,
+    eps: 0,
+    bookValue: 0,
     
     // PE Multiple Inputs
     peRatio: 15,
     
     // Earnings Power Value Inputs
-    operatingEarnings: 28.4,
-    maintainenceCapex: 3.1,
-    workingCapitalChange: 1.2,
+    operatingEarnings: 0,
+    maintainenceCapex: 0,
+    workingCapitalChange: 0,
     
     // Asset-Based Inputs
-    totalAssets: 185.6,
-    totalLiabilities: 120.4,
+    totalAssets: 0,
+    totalLiabilities: 0,
     
     // EBIT Multiple
-    ebit: 30.2,
+    ebit: 0,
     enterpriseMultiple: 12
   });
   
@@ -291,7 +291,6 @@ const MultipleValuationCalculator = () => {
                 
                 <label className="block text-sm">
                   <span>Book Value Per Share ($)</span>
-                  // src/components/Analysis/MultipleValuationCalculator.jsx (continued)
                   <input
                     type="number"
                     name="bookValue"
