@@ -1,34 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '../UI/Card';
+import { getCompanyFinancials } from '../../api/fmpService';
+import calculationService from '../../services/analysis/calculationService';
+import dataProcessingService from '../../services/analysis/dataProcessingService';
 
 const EnhancedIntrinsicValueCalculator = () => {
+  const [ticker, setTicker] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [financialData, setFinancialData] = useState(null);
+  
   const [inputs, setInputs] = useState({
     // Current year owner earnings components
-    currentEarnings: 100,
-    depreciation: 20,
-    capex: 30,
-    workingCapitalChange: 10,
+    currentEarnings: 0,
+    depreciation: 0,
+    capex: 0,
+    workingCapitalChange: 0,
     
     // Historical owner earnings (5-year cycle)
-    yearMinus1: { earnings: 95, depreciation: 19, capex: 28, workingCapital: 9 },
-    yearMinus2: { earnings: 90, depreciation: 18, capex: 27, workingCapital: 8 },
-    yearMinus3: { earnings: 85, depreciation: 17, capex: 26, workingCapital: 7 },
-    yearMinus4: { earnings: 80, depreciation: 16, capex: 25, workingCapital: 6 },
+    yearMinus1: { earnings: 0, depreciation: 0, capex: 0, workingCapital: 0 },
+    yearMinus2: { earnings: 0, depreciation: 0, capex: 0, workingCapital: 0 },
+    yearMinus3: { earnings: 0, depreciation: 0, capex: 0, workingCapital: 0 },
+    yearMinus4: { earnings: 0, depreciation: 0, capex: 0, workingCapital: 0 },
     
     // Business quality and predictability assessment
-    businessCategory: 'excellent', // excellent, good, fair, or cyclical
+    businessCategory: 'good', // excellent, good, fair, or cyclical
     
     // Growth and valuation inputs
     growthRate: 4, // Default to conservative GDP-like growth
     yearsProjected: 10,
     discountRate: 10,
-    terminalGrowthRate: 2,
-    
-    // Toggle for using historical average
-    useHistoricalAverage: true,
-    
-    // Current share price for comparison
-    currentSharePrice: 150
+    terminalGrowthRate: 2
   });
 
   const [results, setResults] = useState({
@@ -39,11 +40,188 @@ const EnhancedIntrinsicValueCalculator = () => {
     terminalValue: 0,
     intrinsicValue: 0,
     safetyPrice: 0,
-    marginOfSafety: 0,
-    currentValuationRatio: 0,
-    potentialReturn: 0
+    marginOfSafety: 0
   });
 
+  // Fetch financial data when ticker changes
+  const fetchFinancialData = async () => {
+    if (!ticker) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const data = await getCompanyFinancials(ticker);
+      const processedData = dataProcessingService.processFinancialData(data);
+      setFinancialData(processedData);
+      
+      // Update inputs based on fetched data
+      updateInputsFromFinancialData(processedData);
+    } catch (error) {
+      console.error('Error fetching financial data:', error);
+      setError(`Error fetching data: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateInputsFromFinancialData = (data) => {
+    if (!data) return;
+
+    try {
+      const { incomeStatements, balanceSheets, cashFlows, profile } = data;
+      
+      // Ensure we have enough historical data
+      if (incomeStatements.length < 5 || balanceSheets.length < 5 || cashFlows.length < 5) {
+        setError("Insufficient historical data (need at least 5 years)");
+        return;
+      }
+      
+      // Extract current year and historical data
+      const currentYearData = {
+        currentEarnings: incomeStatements[0].netIncome,
+        depreciation: cashFlows[0].depreciation,
+        capex: Math.abs(cashFlows[0].capitalExpenditure),
+        workingCapitalChange: calculateWorkingCapitalChange(balanceSheets[1], balanceSheets[0])
+      };
+      
+      // Calculate historical data
+      const yearMinus1 = {
+        earnings: incomeStatements[1].netIncome,
+        depreciation: cashFlows[1].depreciation,
+        capex: Math.abs(cashFlows[1].capitalExpenditure),
+        workingCapital: calculateWorkingCapitalChange(balanceSheets[2], balanceSheets[1])
+      };
+      
+      const yearMinus2 = {
+        earnings: incomeStatements[2].netIncome,
+        depreciation: cashFlows[2].depreciation,
+        capex: Math.abs(cashFlows[2].capitalExpenditure),
+        workingCapital: calculateWorkingCapitalChange(balanceSheets[3], balanceSheets[2])
+      };
+      
+      const yearMinus3 = {
+        earnings: incomeStatements[3].netIncome,
+        depreciation: cashFlows[3].depreciation,
+        capex: Math.abs(cashFlows[3].capitalExpenditure),
+        workingCapital: calculateWorkingCapitalChange(balanceSheets[4], balanceSheets[3])
+      };
+      
+      const yearMinus4 = {
+        earnings: incomeStatements.length > 4 ? incomeStatements[4].netIncome : 0,
+        depreciation: cashFlows.length > 4 ? cashFlows[4].depreciation : 0,
+        capex: cashFlows.length > 4 ? Math.abs(cashFlows[4].capitalExpenditure) : 0,
+        workingCapital: balanceSheets.length > 5 ? calculateWorkingCapitalChange(balanceSheets[5], balanceSheets[4]) : 0
+      };
+      
+      // Assess business quality
+      const businessCategory = assessBusinessQuality(data);
+      
+      // Calculate appropriate growth rate based on historical performance
+      const historicalGrowthRate = calculationService.calculateHistoricalGrowthRate(incomeStatements);
+      const adjustedGrowthRate = Math.min(historicalGrowthRate, 15); // Cap at 15% for conservatism
+      const growthRate = Math.max(2, adjustedGrowthRate); // Minimum 2%
+      
+      // Determine appropriate discount rate based on business quality
+      const discountRate = determineDiscountRate(businessCategory);
+      
+      // Update inputs state
+      setInputs({
+        ...currentYearData,
+        yearMinus1,
+        yearMinus2,
+        yearMinus3,
+        yearMinus4,
+        businessCategory,
+        growthRate: parseFloat(growthRate.toFixed(1)),
+        yearsProjected: 10,
+        discountRate,
+        terminalGrowthRate: 2
+      });
+    } catch (error) {
+      console.error('Error updating inputs from financial data:', error);
+      setError(`Error processing financial data: ${error.message}`);
+    }
+  };
+
+  // Helper function to calculate working capital change
+  const calculateWorkingCapitalChange = (prevYear, currentYear) => {
+    const prevWorkingCapital = prevYear.totalCurrentAssets - prevYear.totalCurrentLiabilities;
+    const currentWorkingCapital = currentYear.totalCurrentAssets - currentYear.totalCurrentLiabilities;
+    return currentWorkingCapital - prevWorkingCapital;
+  };
+
+  // Helper function to assess business quality
+  const assessBusinessQuality = (data) => {
+    const { incomeStatements, balanceSheets } = data;
+    
+    // Calculate average ROE over last 5 years
+    const roeValues = [];
+    for (let i = 0; i < Math.min(incomeStatements.length, balanceSheets.length); i++) {
+      const netIncome = incomeStatements[i].netIncome;
+      const equity = balanceSheets[i].totalStockholdersEquity;
+      if (equity > 0) {
+        roeValues.push((netIncome / equity) * 100);
+      }
+    }
+    
+    const avgROE = roeValues.length > 0 ? 
+      roeValues.reduce((sum, value) => sum + value, 0) / roeValues.length : 0;
+    
+    // Calculate earnings stability (standard deviation of growth rates)
+    const growthRates = [];
+    for (let i = 1; i < incomeStatements.length; i++) {
+      const currentEarnings = incomeStatements[i-1].netIncome;
+      const prevEarnings = incomeStatements[i].netIncome;
+      if (prevEarnings > 0) {
+        growthRates.push((currentEarnings / prevEarnings - 1) * 100);
+      }
+    }
+    
+    const avgGrowthRate = growthRates.length > 0 ?
+      growthRates.reduce((sum, value) => sum + value, 0) / growthRates.length : 0;
+    
+    const growthStdDev = calculateStandardDeviation(growthRates);
+    
+    // Assess business quality based on metrics
+    if (avgROE > 20 && growthStdDev < 15) {
+      return 'excellent';
+    } else if (avgROE > 15 && growthStdDev < 25) {
+      return 'good';
+    } else if (avgROE > 10 && growthStdDev < 40) {
+      return 'fair';
+    } else {
+      return 'cyclical';
+    }
+  };
+
+  // Helper function to calculate standard deviation
+  const calculateStandardDeviation = (values) => {
+    if (values.length < 2) return 0;
+    
+    const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+    const squaredDiffs = values.map(value => Math.pow(value - mean, 2));
+    const variance = squaredDiffs.reduce((sum, value) => sum + value, 0) / values.length;
+    return Math.sqrt(variance);
+  };
+
+  // Helper function to determine appropriate discount rate
+  const determineDiscountRate = (businessCategory) => {
+    switch(businessCategory) {
+      case 'excellent':
+        return 9;
+      case 'good':
+        return 10;
+      case 'fair':
+        return 11;
+      case 'cyclical':
+        return 12;
+      default:
+        return 10;
+    }
+  };
+
+  // Calculate owner earnings for a specific year
   const calculateOwnerEarnings = (year) => {
     return year.earnings + 
            year.depreciation - 
@@ -51,6 +229,7 @@ const EnhancedIntrinsicValueCalculator = () => {
            year.workingCapital;
   };
 
+  // Calculate weighted average owner earnings
   const calculateAverageOwnerEarnings = () => {
     const currentYear = inputs.currentEarnings + 
                        inputs.depreciation - 
@@ -75,6 +254,7 @@ const EnhancedIntrinsicValueCalculator = () => {
     return weightedAverage;
   };
 
+  // Determine appropriate margin of safety
   const determineMarginOfSafety = (businessCategory) => {
     // Vary margin of safety based on business predictability
     switch(businessCategory) {
@@ -91,28 +271,16 @@ const EnhancedIntrinsicValueCalculator = () => {
     }
   };
 
+  // Calculate valuation based on inputs
   const calculateValues = () => {
-    const currentOwnerEarnings = inputs.currentEarnings + 
-                        inputs.depreciation - 
-                        inputs.capex - 
-                        inputs.workingCapitalChange;
-                        
-    const baseEarnings = inputs.useHistoricalAverage ? 
-                        calculateAverageOwnerEarnings() : 
-                        currentOwnerEarnings;
-                        
+    const baseEarnings = calculateAverageOwnerEarnings();
     const growthDecimal = inputs.growthRate / 100;
     const discountDecimal = inputs.discountRate / 100;
     const terminalGrowthDecimal = inputs.terminalGrowthRate / 100;
     const marginOfSafety = determineMarginOfSafety(inputs.businessCategory);
 
     const futureEarnings = baseEarnings * Math.pow(1 + growthDecimal, inputs.yearsProjected);
-    
-    // Ensure terminal growth rate is below discount rate
-    const safeTerminalGrowth = Math.min(terminalGrowthDecimal, discountDecimal - 0.01);
-    
-    // Calculate terminal value with appropriate safety check
-    const terminalValue = futureEarnings * (1 + safeTerminalGrowth) / (discountDecimal - safeTerminalGrowth);
+    const terminalValue = futureEarnings * (1 + terminalGrowthDecimal) / (discountDecimal - terminalGrowthDecimal);
 
     let presentValueOfEarnings = 0;
     for (let year = 1; year <= inputs.yearsProjected; year++) {
@@ -123,29 +291,25 @@ const EnhancedIntrinsicValueCalculator = () => {
     const presentValueOfTerminal = terminalValue / Math.pow(1 + discountDecimal, inputs.yearsProjected);
     const intrinsicValue = presentValueOfEarnings + presentValueOfTerminal;
     const safetyPrice = intrinsicValue * (1 - marginOfSafety);
-    
-    // Calculate current valuation metrics
-    const currentValuationRatio = inputs.currentSharePrice / intrinsicValue;
-    const potentialReturn = (safetyPrice / inputs.currentSharePrice - 1) * 100;
 
     setResults({
-      currentOwnerEarnings: currentOwnerEarnings.toFixed(2),
-      averageOwnerEarnings: baseEarnings.toFixed(2),
-      futureEarnings: futureEarnings.toFixed(2),
-      presentValue: presentValueOfEarnings.toFixed(2),
-      terminalValue: terminalValue.toFixed(2),
-      intrinsicValue: intrinsicValue.toFixed(2),
-      safetyPrice: safetyPrice.toFixed(2),
-      marginOfSafety: (marginOfSafety * 100).toFixed(0),
-      currentValuationRatio: currentValuationRatio.toFixed(2),
-      potentialReturn: potentialReturn.toFixed(2)
+      currentOwnerEarnings: (inputs.currentEarnings + inputs.depreciation - inputs.capex - inputs.workingCapitalChange),
+      averageOwnerEarnings: baseEarnings,
+      futureEarnings: futureEarnings,
+      presentValue: presentValueOfEarnings,
+      terminalValue: terminalValue,
+      intrinsicValue: intrinsicValue,
+      safetyPrice: safetyPrice,
+      marginOfSafety: (marginOfSafety * 100)
     });
   };
 
+  // Recalculate results when inputs change
   useEffect(() => {
     calculateValues();
   }, [inputs]);
 
+  // Handle input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setInputs(prev => ({
@@ -154,16 +318,7 @@ const EnhancedIntrinsicValueCalculator = () => {
     }));
   };
 
-  const handleHistoricalYearChange = (year, field, value) => {
-    setInputs(prev => ({
-      ...prev,
-      [year]: {
-        ...prev[year],
-        [field]: parseFloat(value) || 0
-      }
-    }));
-  };
-
+  // Handle business category changes
   const handleBusinessCategoryChange = (e) => {
     setInputs(prev => ({
       ...prev,
@@ -171,25 +326,39 @@ const EnhancedIntrinsicValueCalculator = () => {
     }));
   };
 
-  const handleToggleChange = (e) => {
-    const { name, checked } = e.target;
-    setInputs(prev => ({
-      ...prev,
-      [name]: checked
-    }));
-  };
-
-  const getValuationColor = () => {
-    const ratio = parseFloat(results.currentValuationRatio);
-    if (ratio <= 0.75) return 'text-green-600 bg-green-50';
-    if (ratio <= 1.0) return 'text-blue-600 bg-blue-50';
-    if (ratio <= 1.25) return 'text-yellow-600 bg-yellow-50';
-    return 'text-red-600 bg-red-50';
+  // Format currency
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value);
   };
 
   return (
     <div className="max-w-6xl mx-auto p-6 bg-white rounded-lg shadow-lg">
       <h1 className="text-2xl font-bold mb-6">Enhanced Buffett-Style Intrinsic Value Calculator</h1>
+      
+      <div className="mb-6">
+        <div className="flex space-x-4">
+          <input
+            type="text"
+            value={ticker}
+            onChange={(e) => setTicker(e.target.value.toUpperCase())}
+            placeholder="Enter stock ticker (e.g., KO)"
+            className="flex-grow p-2 border rounded"
+          />
+          <button
+            onClick={fetchFinancialData}
+            disabled={loading || !ticker}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400"
+          >
+            {loading ? 'Loading...' : 'Fetch Data'}
+          </button>
+        </div>
+        {error && <p className="mt-2 text-red-600">{error}</p>}
+      </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
@@ -238,28 +407,6 @@ const EnhancedIntrinsicValueCalculator = () => {
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
               />
             </label>
-            
-            <label className="block">
-              <span className="text-gray-700">Current Share Price ($)</span>
-              <input
-                type="number"
-                name="currentSharePrice"
-                value={inputs.currentSharePrice}
-                onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
-              />
-            </label>
-
-            <div className="flex items-center mt-4">
-              <input
-                type="checkbox"
-                name="useHistoricalAverage"
-                checked={inputs.useHistoricalAverage}
-                onChange={handleToggleChange}
-                className="mr-2"
-              />
-              <span className="text-gray-700">Use Weighted Historical Average (Recommended)</span>
-            </div>
 
             <div className="mt-6">
               <h2 className="text-lg font-semibold mb-4">Business Quality Assessment</h2>
@@ -275,147 +422,28 @@ const EnhancedIntrinsicValueCalculator = () => {
                 <option value="cyclical">Cyclical - Highly Variable</option>
               </select>
             </div>
-          </div>
-          
-          {inputs.useHistoricalAverage && (
-            <div className="mt-6">
-              <h3 className="text-md font-semibold mb-2">Historical Data (Last 4 Years)</h3>
-              <div className="overflow-x-auto">
-                <table className="min-w-full border-collapse">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="p-2 border">Year</th>
-                      <th className="p-2 border">Earnings</th>
-                      <th className="p-2 border">Depreciation</th>
-                      <th className="p-2 border">CapEx</th>
-                      <th className="p-2 border">Working Capital</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td className="p-2 border">Year -1</td>
-                      <td className="p-2 border">
-                        <input
-                          type="number"
-                          value={inputs.yearMinus1.earnings}
-                          onChange={(e) => handleHistoricalYearChange('yearMinus1', 'earnings', e.target.value)}
-                          className="w-full p-1"
-                        />
-                      </td>
-                      <td className="p-2 border">
-                        <input
-                          type="number"
-                          value={inputs.yearMinus1.depreciation}
-                          onChange={(e) => handleHistoricalYearChange('yearMinus1', 'depreciation', e.target.value)}
-                          className="w-full p-1"
-                        />
-                      </td>
-                      <td className="p-2 border">
-                        <input
-                          type="number"
-                          value={inputs.yearMinus1.capex}
-                          onChange={(e) => handleHistoricalYearChange('yearMinus1', 'capex', e.target.value)}
-                          className="w-full p-1"
-                        />
-                      </td>
-                      <td className="p-2 border">
-                        <input
-                          type="number"
-                          value={inputs.yearMinus1.workingCapital}
-                          onChange={(e) => handleHistoricalYearChange('yearMinus1', 'workingCapital', e.target.value)}
-                          className="w-full p-1"
-                        />
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="p-2 border">Year -2</td>
-                      <td className="p-2 border">
-                        <input
-                          type="number"
-                          value={inputs.yearMinus2.earnings}
-                          onChange={(e) => handleHistoricalYearChange('yearMinus2', 'earnings', e.target.value)}
-                          className="w-full p-1"
-                        />
-                      </td>
-                      <td className="p-2 border">
-                        <input
-                          type="number"
-                          value={inputs.yearMinus2.depreciation}
-                          onChange={(e) => handleHistoricalYearChange('yearMinus2', 'depreciation', e.target.value)}
-                          className="w-full p-1"
-                        />
-                      </td>
-                      <td className="p-2 border">
-                        <input
-                          type="number"
-                          value={inputs.yearMinus2.capex}
-                          onChange={(e) => handleHistoricalYearChange('yearMinus2', 'capex', e.target.value)}
-                          className="w-full p-1"
-                        />
-                      </td>
-                      <td className="p-2 border">
-                        <input
-                          type="number"
-                          value={inputs.yearMinus2.workingCapital}
-                          onChange={(e) => handleHistoricalYearChange('yearMinus2', 'workingCapital', e.target.value)}
-                          className="w-full p-1"
-                        />
-                      </td>
-                    </tr>
-                    {/* Years 3-4 data fields follow the same pattern */}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
 
-          <div className="mt-6">
-            <h2 className="text-lg font-semibold mb-4">Growth & Discount Inputs</h2>
-            <div className="space-y-4">
-              <label className="block">
-                <span className="text-gray-700">Expected Growth Rate (%)</span>
-                <input
-                  type="number"
-                  name="growthRate"
-                  value={inputs.growthRate}
-                  onChange={handleInputChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
-                />
-              </label>
+            <label className="block">
+              <span className="text-gray-700">Expected Growth Rate (%)</span>
+              <input
+                type="number"
+                name="growthRate"
+                value={inputs.growthRate}
+                onChange={handleInputChange}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
+              />
+            </label>
 
-              <label className="block">
-                <span className="text-gray-700">Years to Project</span>
-                <input
-                  type="number"
-                  name="yearsProjected"
-                  value={inputs.yearsProjected}
-                  onChange={handleInputChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
-                />
-              </label>
-
-              <label className="block">
-                <span className="text-gray-700">Discount Rate (%)</span>
-                <input
-                  type="number"
-                  name="discountRate"
-                  value={inputs.discountRate}
-                  onChange={handleInputChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
-                />
-              </label>
-
-              <label className="block">
-                <span className="text-gray-700">Terminal Growth Rate (%)</span>
-                <input
-                  type="number"
-                  name="terminalGrowthRate"
-                  value={inputs.terminalGrowthRate}
-                  onChange={handleInputChange}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
-                />
-              </label>
-            </div>
+            <label className="block">
+              <span className="text-gray-700">Discount Rate (%)</span>
+              <input
+                type="number"
+                name="discountRate"
+                value={inputs.discountRate}
+                onChange={handleInputChange}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2"
+              />
+            </label>
           </div>
         </div>
 
@@ -424,56 +452,37 @@ const EnhancedIntrinsicValueCalculator = () => {
           <div className="space-y-4">
             <div className="p-4 bg-yellow-50 rounded-lg">
               <p className="text-sm text-gray-600">Current Owner Earnings</p>
-              <p className="text-2xl font-bold text-yellow-600">${results.currentOwnerEarnings}</p>
+              <p className="text-2xl font-bold text-yellow-600">{formatCurrency(results.currentOwnerEarnings)}</p>
             </div>
 
-            {inputs.useHistoricalAverage && (
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <p className="text-sm text-gray-600">Weighted Average Owner Earnings (5-Year)</p>
-                <p className="text-2xl font-bold text-blue-600">${results.averageOwnerEarnings}</p>
-              </div>
-            )}
+            <div className="p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-gray-600">Weighted Average Owner Earnings (5-Year)</p>
+              <p className="text-2xl font-bold text-blue-600">{formatCurrency(results.averageOwnerEarnings)}</p>
+            </div>
 
             <div className="p-4 bg-gray-50 rounded-lg">
               <p className="text-sm text-gray-600">Future Earnings (Year {inputs.yearsProjected})</p>
-              <p className="text-2xl font-bold">${results.futureEarnings}</p>
+              <p className="text-2xl font-bold">{formatCurrency(results.futureEarnings)}</p>
             </div>
 
             <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600">Present Value of Future Earnings Stream</p>
-              <p className="text-2xl font-bold">${results.presentValue}</p>
+              <p className="text-sm text-gray-600">Present Value of Earnings</p>
+              <p className="text-2xl font-bold">{formatCurrency(results.presentValue)}</p>
             </div>
 
             <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600">Terminal Value (PV)</p>
-              <p className="text-2xl font-bold">${results.terminalValue}</p>
+              <p className="text-sm text-gray-600">Terminal Value</p>
+              <p className="text-2xl font-bold">{formatCurrency(results.terminalValue)}</p>
             </div>
 
             <div className="p-4 bg-blue-50 rounded-lg">
               <p className="text-sm text-gray-600">Intrinsic Value</p>
-              <p className="text-2xl font-bold text-blue-600">${results.intrinsicValue}</p>
+              <p className="text-2xl font-bold text-blue-600">{formatCurrency(results.intrinsicValue)}</p>
             </div>
 
             <div className="p-4 bg-green-50 rounded-lg">
-              <p className="text-sm text-gray-600">Buy Below Price (with {results.marginOfSafety}% Margin of Safety)</p>
-              <p className="text-2xl font-bold text-green-600">${results.safetyPrice}</p>
-            </div>
-
-            <div className={`p-4 rounded-lg ${getValuationColor()}`}>
-              <p className="text-sm text-gray-600">Current Price/Value Ratio</p>
-              <p className="text-2xl font-bold">{results.currentValuationRatio}x</p>
-              {parseFloat(results.currentValuationRatio) > 1 ? (
-                <p className="text-sm text-red-600">Overvalued by {((parseFloat(results.currentValuationRatio) - 1) * 100).toFixed(1)}%</p>
-              ) : (
-                <p className="text-sm text-green-600">Undervalued by {((1 - parseFloat(results.currentValuationRatio)) * 100).toFixed(1)}%</p>
-              )}
-            </div>
-            
-            <div className={`p-4 rounded-lg ${parseFloat(results.potentialReturn) > 0 ? 'bg-green-50' : 'bg-red-50'}`}>
-              <p className="text-sm text-gray-600">Potential Return (To Safety Price)</p>
-              <p className={`text-2xl font-bold ${parseFloat(results.potentialReturn) > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {parseFloat(results.potentialReturn) > 0 ? '+' : ''}{results.potentialReturn}%
-              </p>
+              <p className="text-sm text-gray-600">Buy Below Price (with {results.marginOfSafety.toFixed(0)}% Margin of Safety)</p>
+              <p className="text-2xl font-bold text-green-600">{formatCurrency(results.safetyPrice)}</p>
             </div>
 
             <div className="mt-6 p-4 bg-gray-100 rounded-lg">
