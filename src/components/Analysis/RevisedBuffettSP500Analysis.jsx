@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../UI/Card';
 import { getCompanyFinancials } from '../../api/fmpService';
 import calculationService from '../../services/analysis/calculationService';
-import dataProcessingService from '../../services/analysis/dataProcessingService';
+import * as dataProcessingService from '../../services/analysis/dataProcessingService';
 
 const RevisedBuffettSP500Analysis = () => {
   const [stockAnalysis, setStockAnalysis] = useState([]);
@@ -55,7 +55,7 @@ const RevisedBuffettSP500Analysis = () => {
         throw new Error(`No data returned for ${ticker}`);
       }
 
-      const processedData = dataProcessingService.processFinancialData(data);
+      const processedData = dataProcessingService.structureFinancialData(data);
       const valuation = calculationService.performValuation(processedData);
       
       // Calculate business quality and extract key metrics
