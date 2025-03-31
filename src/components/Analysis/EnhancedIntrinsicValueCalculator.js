@@ -4,19 +4,19 @@ import React, { useState, useEffect } from 'react';
 const EnhancedIntrinsicValueCalculator = () => {
   const [inputs, setInputs] = useState({
     // Current year owner earnings components
-    currentEarnings: 100,
-    depreciation: 20,
-    capex: 30,
-    workingCapitalChange: 10,
+    currentEarnings: 0,
+    depreciation: 0,
+    capex: 0,
+    workingCapitalChange: 0,
     
     // Historical owner earnings (5-year cycle)
-    yearMinus1: { earnings: 95, depreciation: 19, capex: 28, workingCapital: 9 },
-    yearMinus2: { earnings: 90, depreciation: 18, capex: 27, workingCapital: 8 },
-    yearMinus3: { earnings: 85, depreciation: 17, capex: 26, workingCapital: 7 },
-    yearMinus4: { earnings: 80, depreciation: 16, capex: 25, workingCapital: 6 },
+    yearMinus1: { earnings: 0, depreciation: 0, capex: 0, workingCapital: 0 },
+    yearMinus2: { earnings: 0, depreciation: 0, capex: 0, workingCapital: 0 },
+    yearMinus3: { earnings: 0, depreciation: 0, capex: 0, workingCapital: 0 },
+    yearMinus4: { earnings: 0, depreciation: 0, capex: 0, workingCapital: 0 },
     
     // Business quality and predictability assessment
-    businessCategory: 'excellent', // excellent, good, fair, or cyclical
+    businessCategory: 'good', // excellent, good, fair, or cyclical
     
     // Growth and valuation inputs
     growthRate: 4, // Default to conservative GDP-like growth
