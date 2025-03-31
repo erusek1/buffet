@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../UI/Card';
 import { getCompanyFinancials } from '../../api/fmpService';
 import calculationService from '../../services/analysis/calculationService';
-import dataProcessingService from '../../services/analysis/dataProcessingService';
+import * as dataProcessingService from '../../services/analysis/dataProcessingService';
 
 const MultipleValuationMethodsCalculator = () => {
   const [ticker, setTicker] = useState('');
@@ -67,7 +67,7 @@ const MultipleValuationMethodsCalculator = () => {
     
     try {
       const data = await getCompanyFinancials(ticker);
-      const processedData = dataProcessingService.processFinancialData(data);
+      const processedData = dataProcessingService.structureFinancialData(data);
       setFinancialData(processedData);
       
       // Update inputs based on fetched data
